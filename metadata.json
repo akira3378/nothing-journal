@@ -1,0 +1,5 @@
+{
+  "name": "NOTHING - Enterprise Portal",
+  "description": "A minimalist enterprise community platform adhering to the 'Nothing' philosophy. Features OTP-based auth, member feed, and admin management.",
+  "requestFramePermissions": []
+}
