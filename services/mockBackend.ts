@@ -1,4 +1,4 @@
-import { createClient, SupabaseClient, Session } from '@supabase/supabase-js';
+import { createClient, SupabaseClient, Session, EmailOtpType } from '@supabase/supabase-js';
 import { User, UserRole, UserStatus, Announcement, Post, ApiResponse, Comment } from '../types';
 
 // --- Configuration Management ---
@@ -47,6 +47,70 @@ const ensureClient = (): ApiResponse<any> => {
   return { success: true };
 };
 
+// --- Helper: Image Compression ---
+const compressImage = async (file: File): Promise<File> => {
+    // Only compress images
+    if (!file.type.startsWith('image/')) return file;
+
+    return new Promise((resolve, reject) => {
+        const img = new Image();
+        const url = URL.createObjectURL(file);
+        
+        img.onload = () => {
+            URL.revokeObjectURL(url);
+            const canvas = document.createElement('canvas');
+            const ctx = canvas.getContext('2d');
+            
+            if (!ctx) {
+                resolve(file); // Fallback
+                return;
+            }
+
+            // Target dimensions: Max 1280px width/height (approx 720p)
+            const MAX_SIZE = 1280;
+            let width = img.width;
+            let height = img.height;
+
+            if (width > height) {
+                if (width > MAX_SIZE) {
+                    height *= MAX_SIZE / width;
+                    width = MAX_SIZE;
+                }
+            } else {
+                if (height > MAX_SIZE) {
+                    width *= MAX_SIZE / height;
+                    height = MAX_SIZE;
+                }
+            }
+
+            canvas.width = width;
+            canvas.height = height;
+            ctx.drawImage(img, 0, 0, width, height);
+
+            // Compress to JPEG with 0.7 quality
+            canvas.toBlob((blob) => {
+                if (blob) {
+                    // If compressed blob is actually larger (rare but possible with low res PNGs), return original
+                    if (blob.size > file.size) {
+                         resolve(file);
+                    } else {
+                         const newFile = new File([blob], file.name.replace(/\.[^/.]+$/, ".jpg"), {
+                            type: 'image/jpeg',
+                            lastModified: Date.now(),
+                        });
+                        resolve(newFile);
+                    }
+                } else {
+                    resolve(file);
+                }
+            }, 'image/jpeg', 0.7);
+        };
+
+        img.onerror = (error) => reject(error);
+        img.src = url;
+    });
+};
+
 // --- Auth Service ---
 
 export const getSession = async (): Promise<Session | null> => {
@@ -55,6 +119,7 @@ export const getSession = async (): Promise<Session | null> => {
     return session;
 };
 
+// Step 1: Send OTP (Code)
 export const sendOtp = async (email: string, isRegistration: boolean = false): Promise<ApiResponse<string>> => {
   const check = ensureClient();
   if (!check.success) return check;
@@ -62,48 +127,102 @@ export const sendOtp = async (email: string, isRegistration: boolean = false): P
   const cleanEmail = email.trim().toLowerCase();
 
   try {
+    // Business Logic Checks
     if (isRegistration) {
-        const { data: existing } = await supabase!.from('profiles').select('id').eq('email', cleanEmail).single();
+        const { data: existing } = await supabase!.from('profiles').select('status').eq('email', cleanEmail).single();
         if (existing) {
-            return { success: false, error: 'Email already registered.' };
+            // Logic Requirement: If user exists and is EXPIRED, tell them to Renew (via Login)
+            if (existing.status === 'EXPIRED') {
+                return { success: false, error: 'Account expired. Please Log In to renew membership.' };
+            }
+            // If DELETED, we might allow re-registration, but for now block to be safe or ask support
+            if (existing.status === 'DELETED') {
+                return { success: false, error: 'Account previously deleted. Contact admin.' };
+            }
+            return { success: false, error: 'Email already registered. Please Log In.' };
         }
     } else {
         const { data: existing } = await supabase!.from('profiles').select('status').eq('email', cleanEmail).single();
         if (!existing) {
             return { success: false, error: 'Member not found. Please register first.' };
         }
+        // Strict Login Check
         if (existing.status === 'DELETED') {
-             return { success: false, error: 'Account has been deleted.' };
-        }
-        if (existing.status === 'REJECTED') {
-             return { success: false, error: 'Membership application was rejected.' };
+             return { success: false, error: 'Account has been deactivated.' };
         }
     }
 
+    // Send OTP
     const { error } = await supabase!.auth.signInWithOtp({
       email: cleanEmail,
       options: {
         shouldCreateUser: isRegistration,
-        emailRedirectTo: window.location.origin
       },
     });
 
     if (error) throw error;
-    return { success: true, data: 'Magic Link sent to email.' };
+    return { success: true, data: 'Verification code sent.' };
   } catch (err: any) {
-    return { success: false, error: err.message || 'Failed to send Link' };
+    return { success: false, error: err.message || 'Failed to send Code' };
   }
+};
+
+// Step 2: Verify OTP
+export const verifyOtp = async (email: string, token: string, type: EmailOtpType = 'email'): Promise<ApiResponse<Session>> => {
+    const check = ensureClient();
+    if (!check.success) return check;
+
+    try {
+        // Attempt 1: Try with the requested type (e.g., 'signup' or 'email')
+        const { data, error } = await supabase!.auth.verifyOtp({
+            email,
+            token,
+            type: type
+        });
+
+        if (!error && data.session) {
+            return { success: true, data: data.session };
+        }
+
+        // Attempt 2: Fallback logic (Fixes 403 "Token expired" issues)
+        if (error && (type === 'signup' || type === 'email' || type === 'magiclink')) {
+            console.warn(`Initial verify (${type}) failed: ${error.message}. Attempting fallback...`);
+            
+            let fallbackType: EmailOtpType = 'email';
+            if (type === 'email' || type === 'magiclink') {
+                fallbackType = 'signup';
+            }
+
+            const { data: retryData, error: retryError } = await supabase!.auth.verifyOtp({
+                email,
+                token,
+                type: fallbackType
+            });
+
+            if (!retryError && retryData.session) {
+                return { success: true, data: retryData.session };
+            }
+        }
+
+        if (error) throw error;
+        return { success: false, error: 'Verification failed.' };
+    } catch (err: any) {
+        return { success: false, error: err.message || 'Invalid code' };
+    }
 };
 
 export const uploadImage = async (file: File, bucket: 'avatars' | 'posts'): Promise<string | null> => {
     if (!supabase) return null;
     try {
-        const fileExt = file.name.split('.').pop();
+        // COMPRESS BEFORE UPLOAD
+        const compressedFile = await compressImage(file);
+
+        const fileExt = compressedFile.name.split('.').pop();
         const fileName = `${Date.now()}_${Math.random().toString(36).substring(7)}.${fileExt}`;
         
         const { error: uploadError } = await supabase.storage
             .from(bucket)
-            .upload(fileName, file);
+            .upload(fileName, compressedFile);
 
         if (uploadError) {
             console.warn(`Upload to ${bucket} failed:`, uploadError);
@@ -126,7 +245,7 @@ export const createProfile = async (data: { nickname: string; jobTags: string[];
     const { data: { user: authUser } } = await supabase!.auth.getUser();
     
     if (!authUser || !authUser.email) {
-        return { success: false, error: 'Session expired. Please click the link again.' };
+        return { success: false, error: 'Session expired. Please verify again.' };
     }
 
     const credentialUrl = await uploadImage(data.credentialFile, 'avatars');
@@ -147,7 +266,8 @@ export const createProfile = async (data: { nickname: string; jobTags: string[];
       credential_url: credentialUrl,
       avatar_url: avatarUrl,
       role: 'USER',
-      status: 'PENDING'
+      status: 'PENDING',
+      is_renewal: false
     });
 
     if (dbError) {
@@ -161,6 +281,30 @@ export const createProfile = async (data: { nickname: string; jobTags: string[];
     return { success: false, error: err.message || 'Registration failed' };
   }
 };
+
+export const renewMembership = async (credentialFile: File): Promise<ApiResponse<null>> => {
+    const check = ensureClient();
+    if (!check.success) return check;
+
+    try {
+        const { data: { user } } = await supabase!.auth.getUser();
+        if (!user) return { success: false, error: 'Not logged in' };
+
+        const credentialUrl = await uploadImage(credentialFile, 'avatars');
+        if (!credentialUrl) return { success: false, error: 'Image upload failed' };
+
+        const { error } = await supabase!.from('profiles').update({
+            credential_url: credentialUrl,
+            status: 'PENDING',
+            is_renewal: true
+        }).eq('id', user.id);
+
+        if (error) throw error;
+        return { success: true };
+    } catch (e: any) {
+        return { success: false, error: e.message || 'Renew failed' };
+    }
+}
 
 export const updateUserProfile = async (userId: string, updates: { nickname?: string; jobTags?: string[] }) => {
     if (!supabase) return;
@@ -191,16 +335,33 @@ export const getCurrentUser = async (): Promise<User | null> => {
 
   if (error || !profile) return null;
 
+  // STRICT SECURITY CHECK
+  if (profile.status === 'DELETED') {
+      await logout();
+      return null;
+  }
+
+  // Check Expiration
+  let status = profile.status as UserStatus;
+  const now = Date.now();
+  const expirationDate = profile.expiration_date ? new Date(profile.expiration_date).getTime() : null;
+
+  if (status === UserStatus.ACTIVE && expirationDate && now > expirationDate) {
+      status = UserStatus.EXPIRED;
+  }
+
   return {
     id: profile.id,
     email: profile.email,
     nickname: profile.nickname,
     role: profile.role as UserRole,
-    status: profile.status as UserStatus,
+    status: status,
     jobTags: profile.job_tags || [],
     credentialUrl: profile.credential_url,
     avatarUrl: profile.avatar_url,
-    createdAt: new Date(profile.created_at).getTime()
+    createdAt: new Date(profile.created_at).getTime(),
+    expirationDate: expirationDate || undefined,
+    isRenewal: profile.is_renewal
   };
 };
 
@@ -272,18 +433,23 @@ export const getFeed = async (page: number = 1, limit: number = 10): Promise<Fee
   try {
     const { data: { user: currentUser } } = await supabase.auth.getUser();
     
-    // Calculate range for pagination (0-indexed)
+    const { data: profile } = await supabase.from('profiles').select('status, expiration_date').eq('id', currentUser?.id).single();
+    
+    if (!profile || profile.status === 'DELETED') return { data: [], count: 0 };
+    
+    if (profile.expiration_date && new Date().getTime() > new Date(profile.expiration_date).getTime()) {
+        return { data: [], count: 0 };
+    }
+
     const from = (page - 1) * limit;
     const to = from + limit - 1;
 
-    // Get count first
     const { count, error: countError } = await supabase
         .from('posts')
         .select('*', { count: 'exact', head: true });
 
     if (countError) console.warn("Count error", countError);
 
-    // Get Data
     const { data, error } = await supabase
         .from('posts')
         .select(`
@@ -317,11 +483,18 @@ export const getFeed = async (page: number = 1, limit: number = 10): Promise<Fee
             // Ignore missing table errors
         }
 
+        let imageUrls: string[] = [];
+        if (p.image_urls && Array.isArray(p.image_urls)) {
+            imageUrls = p.image_urls;
+        } else if (p.image_url) {
+            imageUrls = [p.image_url];
+        }
+
         return {
             id: p.id,
             userId: p.user_id,
             content: p.content,
-            imageUrl: p.image_url,
+            imageUrls: imageUrls, 
             location: p.location,
             createdAt: new Date(p.created_at).getTime(),
             likes,
@@ -346,21 +519,26 @@ export const getFeed = async (page: number = 1, limit: number = 10): Promise<Fee
   }
 };
 
-export const createPost = async (content: string, file?: File, location?: string) => {
+export const createPost = async (content: string, files: File[] = [], location?: string) => {
   if (!supabase) return;
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) throw new Error("Not logged in");
 
-  let imageUrl = null;
+  const imageUrls: string[] = [];
 
-  if (file) {
-      imageUrl = await uploadImage(file, 'posts');
+  // Upload all files
+  if (files.length > 0) {
+      for (const file of files) {
+          const url = await uploadImage(file, 'posts');
+          if (url) imageUrls.push(url);
+      }
   }
 
   const { error } = await supabase.from('posts').insert({
     user_id: user.id,
     content,
-    image_url: imageUrl,
+    image_urls: imageUrls,
+    image_url: imageUrls.length > 0 ? imageUrls[0] : null,
     location: location
   });
   
@@ -380,15 +558,14 @@ export const toggleLike = async (postId: string) => {
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) return;
 
-    // Check if liked
     const { data: existing } = await supabase.from('likes').select('id').eq('post_id', postId).eq('user_id', user.id).single();
     
     if (existing) {
         await supabase.from('likes').delete().eq('id', existing.id);
-        return false; // unliked
+        return false;
     } else {
         await supabase.from('likes').insert({ post_id: postId, user_id: user.id });
-        return true; // liked
+        return true;
     }
 };
 
@@ -400,7 +577,7 @@ export const getComments = async (postId: string): Promise<Comment[]> => {
         .eq('post_id', postId)
         .order('created_at', { ascending: true });
     
-    if (error) throw error; // Allow component to handle error
+    if (error) throw error;
 
     return (data || []).map((c: any) => ({
         id: c.id,
@@ -443,16 +620,48 @@ export const getAdminUsers = async (): Promise<User[]> => {
     jobTags: profile.job_tags || [],
     credentialUrl: profile.credential_url,
     avatarUrl: profile.avatar_url,
-    createdAt: new Date(profile.created_at).getTime()
+    createdAt: new Date(profile.created_at).getTime(),
+    expirationDate: profile.expiration_date ? new Date(profile.expiration_date).getTime() : undefined,
+    isRenewal: profile.is_renewal
   }));
 };
 
-export const updateUserStatus = async (userId: string, status: UserStatus) => {
-  if (!supabase) return;
-  await supabase.from('profiles').update({ status }).eq('id', userId);
+// New function for polling badge
+export const getPendingUserCount = async (): Promise<number> => {
+    if (!supabase) return 0;
+    const { count } = await supabase
+        .from('profiles')
+        .select('*', { count: 'exact', head: true })
+        .eq('status', 'PENDING');
+    return count || 0;
+};
+
+export const updateUser = async (userId: string, updates: { status?: UserStatus; role?: UserRole; expirationDate?: string | null }) => {
+    if (!supabase) return;
+    
+    const payload: any = {};
+    if (updates.status) payload.status = updates.status;
+    if (updates.role) payload.role = updates.role;
+    if (updates.expirationDate !== undefined) {
+         payload.expiration_date = updates.expirationDate;
+    }
+    
+    if (updates.status === UserStatus.ACTIVE) {
+        payload.is_renewal = false;
+    }
+
+    const { error } = await supabase.from('profiles').update(payload).eq('id', userId);
+    if (error) throw error;
+};
+
+export const updateUserStatus = async (userId: string, status: UserStatus, expirationDate?: Date) => {
+  const payload: any = { status };
+  if (status === UserStatus.ACTIVE && expirationDate) {
+      payload.expirationDate = expirationDate.toISOString();
+  }
+  await updateUser(userId, payload);
 };
 
 export const updateUserRole = async (userId: string, role: UserRole) => {
-  if (!supabase) return;
-  await supabase.from('profiles').update({ role }).eq('id', userId);
+  await updateUser(userId, { role });
 };

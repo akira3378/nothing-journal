@@ -1,7 +1,9 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
-import { User } from '../types';
+import { User, UserRole } from '../types';
 import { useApp } from '../utils/i18n';
+import { getPendingUserCount } from '../services/mockBackend';
+import { Badge } from './UI';
 
 interface NavbarProps {
   user: User | null;
@@ -13,6 +15,21 @@ export const Navbar: React.FC<NavbarProps> = ({ user, onLogout }) => {
   const location = useLocation();
   const { t, theme, toggleTheme, language, setLanguage } = useApp();
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
+  const [pendingCount, setPendingCount] = useState(0);
+
+  // Polling for Admin Badge
+  useEffect(() => {
+    let interval: any;
+    if (user && user.role === UserRole.ADMIN) {
+        const checkPending = async () => {
+            const count = await getPendingUserCount();
+            setPendingCount(count);
+        };
+        checkPending();
+        interval = setInterval(checkPending, 30000); // Check every 30s
+    }
+    return () => clearInterval(interval);
+  }, [user]);
 
   const isAuthPage = location.pathname === '/login' || location.pathname === '/register';
   if (isAuthPage) return null;
@@ -29,7 +46,10 @@ export const Navbar: React.FC<NavbarProps> = ({ user, onLogout }) => {
           <button onClick={() => { navigate('/feed'); setIsMobileMenuOpen(false); }} className="text-zinc-600 dark:text-zinc-300 hover:text-black dark:hover:text-white px-3 py-2 text-sm font-medium">{t('feed')}</button>
           <button onClick={() => { navigate('/profile'); setIsMobileMenuOpen(false); }} className="text-zinc-600 dark:text-zinc-300 hover:text-black dark:hover:text-white px-3 py-2 text-sm font-medium">{t('profile')}</button>
           {user.role === 'ADMIN' && (
-            <button onClick={() => { navigate('/admin'); setIsMobileMenuOpen(false); }} className="text-red-500 hover:text-red-600 dark:text-red-400 dark:hover:text-red-300 px-3 py-2 text-sm font-medium">{t('admin')}</button>
+            <button onClick={() => { navigate('/admin'); setIsMobileMenuOpen(false); }} className="text-red-500 hover:text-red-600 dark:text-red-400 dark:hover:text-red-300 px-3 py-2 text-sm font-medium flex items-center gap-1">
+                {t('admin')}
+                {pendingCount > 0 && <Badge variant="dot" />}
+            </button>
           )}
           <button onClick={() => { onLogout(); setIsMobileMenuOpen(false); }} className="ml-0 md:ml-4 border border-zinc-300 dark:border-white/20 hover:border-zinc-900 dark:hover:border-white/50 text-black dark:text-white px-3 py-1.5 rounded-sm text-xs transition-all">{t('logout')}</button>
         </>

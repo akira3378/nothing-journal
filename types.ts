@@ -8,6 +8,7 @@ export enum UserStatus {
   ACTIVE = 'ACTIVE',
   REJECTED = 'REJECTED',
   DELETED = 'DELETED',
+  EXPIRED = 'EXPIRED', // New Status
 }
 
 export interface User {
@@ -17,9 +18,11 @@ export interface User {
   role: UserRole;
   status: UserStatus;
   credentialUrl?: string;
-  avatarUrl?: string; // New field
+  avatarUrl?: string;
   jobTags: string[];
   createdAt: number;
+  expirationDate?: number; // New Field
+  isRenewal?: boolean; // New Field to track if it's a renewal application
 }
 
 export interface Announcement {
@@ -45,7 +48,7 @@ export interface Post {
   id: string;
   userId: string;
   content: string;
-  imageUrl?: string;
+  imageUrls?: string[]; // Updated to support multiple images
   location?: string;
   createdAt: number;
   likes: number;

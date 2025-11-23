@@ -4,6 +4,7 @@ import { Navbar } from './components/Navbar';
 import { User, UserRole, UserStatus } from './types';
 import { getCurrentUser, logout, isBackendConfigured, configureBackend, getSession } from './services/mockBackend';
 import { AppProvider } from './utils/i18n';
+import { ToastProvider } from './components/UI';
 
 // Pages
 import LandingPage from './pages/LandingPage';
@@ -36,6 +37,7 @@ const ProtectedRoute: React.FC<ProtectedRouteProps> = ({ user, children, role, r
 
 const AppContent: React.FC = () => {
   const [user, setUser] = useState<User | null>(null);
+  const [hasSession, setHasSession] = useState(false);
   const [loading, setLoading] = useState(true);
   const [isConfigured, setIsConfigured] = useState(isBackendConfigured());
   const [configError, setConfigError] = useState(false);
@@ -52,6 +54,9 @@ const AppContent: React.FC = () => {
 
     const checkAuth = async () => {
       try {
+        const session = await getSession();
+        setHasSession(!!session);
+
         const timeout = new Promise((_, reject) => setTimeout(() => reject(new Error('Timeout')), 8000));
         const userPromise = getCurrentUser();
         const currentUser = await Promise.race([userPromise, timeout]) as User | null;
@@ -70,6 +75,7 @@ const AppContent: React.FC = () => {
   const handleLogout = async () => {
     await logout();
     setUser(null);
+    setHasSession(false);
     window.location.hash = '/';
   };
 
@@ -126,46 +132,51 @@ const AppContent: React.FC = () => {
   }
 
   return (
-    <HashRouter>
-      <div className="min-h-screen bg-white dark:bg-nothing-black text-black dark:text-nothing-white selection:bg-black selection:text-white dark:selection:bg-white dark:selection:text-black font-sans transition-colors duration-300">
-        <Navbar user={user} onLogout={handleLogout} />
-        
-        <main className="w-full">
-          <Routes>
-            <Route path="/" element={<LandingPage user={user} />} />
-            <Route path="/login" element={user ? <Navigate to="/feed" /> : <LoginPage onLoginSuccess={(u) => setUser(u)} />} />
-            <Route path="/register" element={user ? <Navigate to="/feed" /> : <RegisterPage />} />
+    <AppProvider>
+    <ToastProvider>
+        <HashRouter>
+        <div className="min-h-screen bg-white dark:bg-nothing-black text-black dark:text-nothing-white selection:bg-black selection:text-white dark:selection:bg-white dark:selection:text-black font-sans transition-colors duration-300">
+            <Navbar user={user} onLogout={handleLogout} />
             
-            <Route path="/feed" element={
-              <ProtectedRoute user={user} requireActive={true}>
-                <FeedPage user={user!} />
-              </ProtectedRoute>
-            } />
-            
-            <Route path="/profile" element={
-              <ProtectedRoute user={user}>
-                <ProfilePage user={user!} />
-              </ProtectedRoute>
-            } />
+            <main className="w-full">
+            <Routes>
+                <Route path="/" element={<LandingPage user={user} />} />
+                
+                {/* Login Logic */}
+                <Route path="/login" element={user ? <Navigate to="/feed" /> : <LoginPage onLoginSuccess={(u) => setUser(u)} />} />
+                
+                {/* Register/Onboarding Logic */}
+                <Route path="/register" element={
+                    // If user is fully profiled, go to feed.
+                    user ? <Navigate to="/feed" /> : 
+                    // If user is NOT profiled, stay here (RegisterPage handles both Email entry AND Onboarding)
+                    <RegisterPage />
+                } />
+                
+                <Route path="/feed" element={
+                <ProtectedRoute user={user} requireActive={true}>
+                    <FeedPage user={user!} />
+                </ProtectedRoute>
+                } />
+                
+                <Route path="/profile" element={
+                <ProtectedRoute user={user}>
+                    <ProfilePage user={user!} />
+                </ProtectedRoute>
+                } />
 
-            <Route path="/admin" element={
-              <ProtectedRoute user={user} role={UserRole.ADMIN}>
-                <AdminDashboard />
-              </ProtectedRoute>
-            } />
-          </Routes>
-        </main>
-      </div>
-    </HashRouter>
+                <Route path="/admin" element={
+                <ProtectedRoute user={user} role={UserRole.ADMIN}>
+                    <AdminDashboard />
+                </ProtectedRoute>
+                } />
+            </Routes>
+            </main>
+        </div>
+        </HashRouter>
+    </ToastProvider>
+    </AppProvider>
   );
 };
 
-const App: React.FC = () => {
-    return (
-        <AppProvider>
-            <AppContent />
-        </AppProvider>
-    );
-};
-
-export default App;
+export default AppContent;

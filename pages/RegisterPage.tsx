@@ -1,17 +1,15 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { sendOtp, createProfile, getSession, logout } from '../services/mockBackend';
+import { sendOtp, verifyOtp, createProfile, getSession, logout } from '../services/mockBackend';
 import { useApp } from '../utils/i18n';
 
 const RegisterPage: React.FC = () => {
   const navigate = useNavigate();
   const { t } = useApp();
   
-  const [isAuthenticated, setIsAuthenticated] = useState(false);
-  const [checkingAuth, setCheckingAuth] = useState(true);
-  
   // Form State
   const [email, setEmail] = useState('');
+  const [otp, setOtp] = useState('');
   const [nickname, setNickname] = useState('');
   const [tagInput, setTagInput] = useState('');
   const [tags, setTags] = useState<string[]>([]);
@@ -23,29 +21,26 @@ const RegisterPage: React.FC = () => {
   const [avatarPreview, setAvatarPreview] = useState<string | null>(null);
   
   // UI State
-  const [step, setStep] = useState<'enter_email' | 'email_sent' | 'onboarding' | 'submitted'>('enter_email');
+  const [step, setStep] = useState<'enter_email' | 'enter_otp' | 'fill_profile' | 'submitted'>('enter_email');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
 
   useEffect(() => {
-      const check = async () => {
-          const session = await getSession();
-          if (session) {
-              setIsAuthenticated(true);
-              setStep('onboarding');
-              setEmail(session.user.email || '');
-          }
-          setCheckingAuth(false);
-      };
-      check();
-  }, []);
+    // Check if session exists (e.g. reload during profile fill)
+    const checkSession = async () => {
+        const session = await getSession();
+        if (session && step === 'enter_email') {
+            setStep('fill_profile');
+            setEmail(session.user.email || '');
+        }
+    };
+    checkSession();
 
-  useEffect(() => {
     return () => {
         if (credPreview) URL.revokeObjectURL(credPreview);
         if (avatarPreview) URL.revokeObjectURL(avatarPreview);
     };
-  }, [credPreview, avatarPreview]);
+  }, []);
 
   const handleAddTag = () => {
     if (tags.length >= 3) return;
@@ -81,15 +76,16 @@ const RegisterPage: React.FC = () => {
       }
   };
 
-  const handleSendLink = async (e: React.FormEvent) => {
+  // Step 1: Send Code
+  const handleSendCode = async (e: React.FormEvent) => {
     e.preventDefault();
     setError('');
     setLoading(true);
     
     try {
-      const res = await sendOtp(email, true);
+      const res = await sendOtp(email, true); // true = Registration (check if NOT exists)
       if (res.success) {
-        setStep('email_sent');
+        setStep('enter_otp');
       } else {
         setError(res.error || 'Could not send verification code.');
       }
@@ -100,6 +96,27 @@ const RegisterPage: React.FC = () => {
     }
   };
 
+  // Step 2: Verify Code
+  const handleVerifyOtp = async (e: React.FormEvent) => {
+      e.preventDefault();
+      setError('');
+      setLoading(true);
+      
+      try {
+          const res = await verifyOtp(email, otp, 'signup');
+          if (res.success) {
+              setStep('fill_profile');
+          } else {
+              setError(res.error || 'Invalid code.');
+          }
+      } catch (e) {
+          setError('Verification failed.');
+      } finally {
+          setLoading(false);
+      }
+  };
+
+  // Step 3: Create Profile
   const handleCompleteProfile = async (e: React.FormEvent) => {
       e.preventDefault();
       setError('');
@@ -145,17 +162,15 @@ const RegisterPage: React.FC = () => {
       window.location.reload();
   };
 
-  if (checkingAuth) return <div className="min-h-screen bg-white dark:bg-black flex items-center justify-center text-zinc-500">{t('processing')}</div>;
-
   return (
     <div className="min-h-screen py-12 px-4 sm:px-6 lg:px-8 flex justify-center bg-gray-50 dark:bg-nothing-black transition-colors duration-300">
       <div className="max-w-xl w-full space-y-8">
         <div>
           <h2 className="text-3xl font-bold tracking-tighter text-black dark:text-white">
-              {step === 'onboarding' ? t('complete_reg') : step === 'submitted' ? t('pending_title') : t('apply_membership')}
+              {step === 'fill_profile' ? t('complete_reg') : step === 'submitted' ? t('pending_title') : t('apply_membership')}
           </h2>
           <p className="mt-2 text-sm text-zinc-500">
-              {step === 'onboarding' ? `${email}` : step === 'submitted' ? '' : t('join_2000')}
+              {step === 'fill_profile' ? `${email}` : step === 'submitted' ? '' : t('join_2000')}
           </p>
         </div>
 
@@ -167,7 +182,7 @@ const RegisterPage: React.FC = () => {
           )}
 
           {step === 'enter_email' && (
-            <form onSubmit={handleSendLink} className="space-y-6">
+            <form onSubmit={handleSendCode} className="space-y-6">
               <div>
                 <label className="block text-xs font-bold text-zinc-500 uppercase tracking-wider mb-1">{t('email_label')}</label>
                 <input type="email" required value={email} onChange={e => setEmail(e.target.value)}
@@ -175,34 +190,48 @@ const RegisterPage: React.FC = () => {
               </div>
                <div className="bg-yellow-50 dark:bg-yellow-900/10 border border-yellow-200 dark:border-yellow-900/30 p-3 rounded-sm">
                    <p className="text-xs text-yellow-700 dark:text-yellow-500 leading-relaxed">
-                       <strong>{t('security_notice')}</strong> {t('security_desc')}
+                       <strong>{t('security_notice')}</strong> We will verify your email with a one-time code.
                    </p>
                </div>
 
               <button type="submit" disabled={loading}
                 className="w-full flex justify-center items-center gap-2 py-4 px-4 border border-transparent text-sm font-bold rounded-sm text-white dark:text-black bg-black dark:bg-white hover:bg-zinc-800 dark:hover:bg-zinc-200 transition-colors disabled:opacity-50 disabled:cursor-not-allowed">
-                {loading ? t('processing') : t('send_verify')}
+                {loading ? t('processing') : 'SEND CODE'}
               </button>
             </form>
           )}
 
-          {step === 'email_sent' && (
-            <div className="text-center space-y-6">
-                <div className="inline-block p-4 rounded-full bg-gray-100 dark:bg-black border border-zinc-200 dark:border-zinc-700 animate-pulse">
-                    <svg className="w-8 h-8 text-black dark:text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"></path></svg>
+          {step === 'enter_otp' && (
+             <form onSubmit={handleVerifyOtp} className="space-y-6">
+                <div className="text-center mb-4">
+                    <p className="text-sm text-zinc-500">Code sent to {email}</p>
                 </div>
                 <div>
-                    <h3 className="text-xl font-bold text-black dark:text-white">{t('check_email_header')}</h3>
-                    <p className="text-zinc-500 text-sm mt-2">{t('link_sent_desc')} <span className="text-black dark:text-white font-bold">{email}</span>.</p>
-                    <p className="text-zinc-500 dark:text-zinc-400 text-xs mt-4 bg-gray-100 dark:bg-zinc-900 p-2 rounded border border-zinc-200 dark:border-zinc-800">
-                       {t('check_email_reg_desc')}
-                    </p>
-                </div>
-            </div>
+                    <label className="block text-xs font-bold text-zinc-500 uppercase tracking-wider mb-1">VERIFICATION CODE</label>
+                    <input
+                        type="text"
+                        required
+                        maxLength={6}
+                        value={otp}
+                        onChange={(e) => setOtp(e.target.value.replace(/[^0-9]/g, ''))}
+                        className="mt-1 block w-full bg-white dark:bg-black border border-zinc-300 dark:border-zinc-700 rounded-sm py-3 px-4 text-black dark:text-white text-center text-2xl tracking-[0.5em] font-mono focus:outline-none focus:border-black dark:focus:border-white transition-colors"
+                        placeholder="000000"
+                    />
+                 </div>
+                 <div className="flex gap-4">
+                     <button type="button" onClick={() => setStep('enter_email')} className="px-4 py-4 bg-zinc-200 dark:bg-zinc-800 text-black dark:text-white text-sm font-bold rounded-sm">
+                         BACK
+                     </button>
+                     <button type="submit" disabled={loading || otp.length < 6}
+                        className="flex-1 flex justify-center items-center gap-2 py-4 px-4 border border-transparent text-sm font-bold rounded-sm text-white dark:text-black bg-black dark:bg-white hover:bg-zinc-800 dark:hover:bg-zinc-200 transition-colors disabled:opacity-50">
+                        {loading ? t('processing') : 'VERIFY & CONTINUE'}
+                    </button>
+                 </div>
+             </form>
           )}
 
-          {step === 'onboarding' && (
-            <form onSubmit={handleCompleteProfile} className="space-y-6">
+          {step === 'fill_profile' && (
+            <form onSubmit={handleCompleteProfile} className="space-y-6 animate-fadeIn">
                 
                 {/* Avatar */}
                 <div className="flex justify-center mb-6">

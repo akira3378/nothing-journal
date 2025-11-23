@@ -1,16 +1,128 @@
 import React, { useEffect, useState } from 'react';
 import { User, Announcement, UserStatus, UserRole } from '../types';
-import { getAdminUsers, updateUserStatus, createAnnouncement, getAllAnnouncements, updateUserRole, deleteAnnouncement, updateAnnouncement } from '../services/mockBackend';
+import { getAdminUsers, updateUserStatus, createAnnouncement, getAllAnnouncements, deleteAnnouncement, updateAnnouncement, updateUser } from '../services/mockBackend';
 import { useApp } from '../utils/i18n';
+import { ImagePreview } from '../components/ImagePreview';
+import { Button, Badge, Spinner, useToast } from '../components/UI';
+
+// --- Edit User Modal Component ---
+interface EditUserModalProps {
+    user: User;
+    onClose: () => void;
+    onSave: () => void;
+}
+
+const EditUserModal: React.FC<EditUserModalProps> = ({ user, onClose, onSave }) => {
+    const { addToast } = useToast();
+    const [role, setRole] = useState<UserRole>(user.role);
+    const [status, setStatus] = useState<UserStatus>(user.status);
+    const initialDate = user.expirationDate 
+        ? new Date(user.expirationDate).toISOString().split('T')[0] 
+        : '';
+    const [expirationDate, setExpirationDate] = useState(initialDate);
+    const [loading, setLoading] = useState(false);
+
+    const handleSave = async () => {
+        setLoading(true);
+        try {
+            await updateUser(user.id, {
+                role,
+                status,
+                expirationDate: expirationDate || null
+            });
+            addToast("User updated successfully", "success");
+            onSave();
+        } catch (e) {
+            addToast("Failed to update user", "error");
+        } finally {
+            setLoading(false);
+        }
+    };
+
+    return (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm p-4 animate-fadeIn">
+            <div className="bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 p-6 rounded-sm w-full max-w-lg shadow-2xl">
+                <div className="flex justify-between items-center mb-6">
+                    <h3 className="text-xl font-bold text-black dark:text-white">EDIT USER</h3>
+                    <Button variant="ghost" size="sm" onClick={onClose}>✕</Button>
+                </div>
+                
+                <div className="space-y-4">
+                    <div className="grid grid-cols-2 gap-4 text-sm">
+                        <div>
+                            <label className="block text-xs font-bold text-zinc-500 uppercase mb-1">Nickname</label>
+                            <div className="p-2 bg-gray-50 dark:bg-black border border-zinc-200 dark:border-zinc-800 rounded-sm text-zinc-700 dark:text-zinc-300">
+                                {user.nickname}
+                            </div>
+                        </div>
+                        <div>
+                            <label className="block text-xs font-bold text-zinc-500 uppercase mb-1">Email</label>
+                            <div className="p-2 bg-gray-50 dark:bg-black border border-zinc-200 dark:border-zinc-800 rounded-sm text-zinc-700 dark:text-zinc-300 truncate">
+                                {user.email}
+                            </div>
+                        </div>
+                    </div>
+
+                    <div>
+                        <label className="block text-xs font-bold text-zinc-500 uppercase mb-1">Role</label>
+                        <select 
+                            value={role} 
+                            onChange={(e) => setRole(e.target.value as UserRole)}
+                            className="w-full p-2 bg-white dark:bg-black border border-zinc-300 dark:border-zinc-700 rounded-sm text-black dark:text-white"
+                        >
+                            <option value={UserRole.USER}>USER</option>
+                            <option value={UserRole.ADMIN}>ADMIN</option>
+                        </select>
+                    </div>
+
+                    <div>
+                        <label className="block text-xs font-bold text-zinc-500 uppercase mb-1">Status</label>
+                        <select 
+                            value={status} 
+                            onChange={(e) => setStatus(e.target.value as UserStatus)}
+                            className="w-full p-2 bg-white dark:bg-black border border-zinc-300 dark:border-zinc-700 rounded-sm text-black dark:text-white"
+                        >
+                            <option value={UserStatus.PENDING}>PENDING</option>
+                            <option value={UserStatus.ACTIVE}>ACTIVE</option>
+                            <option value={UserStatus.REJECTED}>REJECTED</option>
+                            <option value={UserStatus.DELETED}>DELETED</option>
+                            <option value={UserStatus.EXPIRED}>EXPIRED</option>
+                        </select>
+                    </div>
+
+                    <div>
+                        <label className="block text-xs font-bold text-zinc-500 uppercase mb-1">Expiration Date</label>
+                        <input 
+                            type="date" 
+                            value={expirationDate}
+                            onChange={(e) => setExpirationDate(e.target.value)}
+                            className="w-full p-2 bg-white dark:bg-black border border-zinc-300 dark:border-zinc-700 rounded-sm text-black dark:text-white"
+                        />
+                    </div>
+                </div>
+
+                <div className="flex gap-3 mt-8">
+                    <Button variant="secondary" onClick={onClose} className="flex-1">CANCEL</Button>
+                    <Button variant="primary" onClick={handleSave} isLoading={loading} className="flex-1">SAVE CHANGES</Button>
+                </div>
+            </div>
+        </div>
+    );
+};
+
 
 const AdminDashboard: React.FC = () => {
   const { t } = useApp();
+  const { addToast } = useToast();
   const [activeTab, setActiveTab] = useState<'users' | 'announcements'>('users');
   const [users, setUsers] = useState<User[]>([]);
   const [announcements, setAnnouncements] = useState<Announcement[]>([]);
   const [loading, setLoading] = useState(true);
   
-  // Announcement Form
+  const [approvingUser, setApprovingUser] = useState<User | null>(null);
+  const [approvalExpDate, setApprovalExpDate] = useState('');
+  const [editingUser, setEditingUser] = useState<User | null>(null);
+  
   const [editId, setEditId] = useState<string | null>(null);
   const [annTitle, setAnnTitle] = useState('');
   const [annContent, setAnnContent] = useState('');
@@ -24,7 +136,7 @@ const AdminDashboard: React.FC = () => {
         setUsers(u);
         setAnnouncements(a);
     } catch (e) {
-        console.error("Failed to fetch admin data");
+        addToast("Failed to fetch data", "error");
     } finally {
         setLoading(false);
     }
@@ -32,21 +144,49 @@ const AdminDashboard: React.FC = () => {
 
   useEffect(() => {
     fetchData();
+    const d = new Date();
+    d.setFullYear(d.getFullYear() + 1);
+    setApprovalExpDate(d.toISOString().split('T')[0]);
   }, []);
+
+  const initiateApproval = (user: User) => {
+      setApprovingUser(user);
+  };
+
+  const cancelApproval = () => {
+      setApprovingUser(null);
+  };
+
+  const confirmApproval = async () => {
+      if (!approvingUser || !approvalExpDate) return;
+      const dateObj = new Date(approvalExpDate);
+      if (dateObj.getTime() < Date.now()) {
+          addToast("Expiration date must be in the future", "error");
+          return;
+      }
+
+      await updateUserStatus(approvingUser.id, UserStatus.ACTIVE, dateObj);
+      setApprovingUser(null);
+      addToast("User approved", "success");
+      fetchData();
+  };
+
+  const handleEditClick = (user: User) => {
+      setEditingUser(user);
+  };
+
+  const handleEditSave = async () => {
+      setEditingUser(null);
+      await fetchData();
+  };
 
   const handleStatusChange = async (userId: string, newStatus: UserStatus) => {
     const action = newStatus === UserStatus.DELETED ? 'DELETE' : 'UPDATE';
     if (!window.confirm(`Are you sure you want to ${action} this user?`)) return;
     
     await updateUserStatus(userId, newStatus);
-    const u = await getAdminUsers();
-    setUsers(u);
-  };
-
-  const handleRoleChange = async (userId: string, newRole: string) => {
-      await updateUserRole(userId, newRole as UserRole);
-      const u = await getAdminUsers();
-      setUsers(u);
+    addToast(`User status updated to ${newStatus}`, "info");
+    fetchData();
   };
 
   const handlePostAnnouncement = async (e: React.FormEvent) => {
@@ -56,6 +196,7 @@ const AdminDashboard: React.FC = () => {
     
     if (editId) {
         await updateAnnouncement(editId, { title: annTitle, content: annContent });
+        addToast("Announcement updated", "success");
     } else {
         await createAnnouncement({
             title: annTitle,
@@ -63,6 +204,7 @@ const AdminDashboard: React.FC = () => {
             type: 'text',
             isActive: true
         });
+        addToast("Announcement published", "success");
     }
 
     setAnnTitle('');
@@ -83,6 +225,7 @@ const AdminDashboard: React.FC = () => {
   const handleDeleteAnn = async (id: string) => {
       if(!confirm("Delete this announcement?")) return;
       await deleteAnnouncement(id);
+      addToast("Announcement deleted", "info");
       const a = await getAllAnnouncements();
       setAnnouncements(a);
   };
@@ -93,109 +236,81 @@ const AdminDashboard: React.FC = () => {
       setAnnContent('');
   }
 
+  const newApplications = users.filter(u => u.status === UserStatus.PENDING && !u.isRenewal);
+  const renewalApplications = users.filter(u => u.status === UserStatus.PENDING && u.isRenewal);
+  const activeUsers = users.filter(u => u.status !== UserStatus.PENDING);
+
   return (
-    <div className="max-w-7xl mx-auto px-4 py-8">
+    <div className="max-w-7xl mx-auto px-4 py-8 relative">
       <div className="flex flex-col md:flex-row justify-between items-center mb-8 gap-4">
         <h1 className="text-3xl font-bold text-black dark:text-white">{t('administration')}</h1>
         <div className="flex space-x-2">
-            <button onClick={() => setActiveTab('users')} className={`px-4 py-2 rounded-sm text-sm font-bold transition-colors ${activeTab === 'users' ? 'bg-black dark:bg-white text-white dark:text-black' : 'text-zinc-500 hover:text-black dark:hover:text-white'}`}>{t('members')}</button>
-            <button onClick={() => setActiveTab('announcements')} className={`px-4 py-2 rounded-sm text-sm font-bold transition-colors ${activeTab === 'announcements' ? 'bg-black dark:bg-white text-white dark:text-black' : 'text-zinc-500 hover:text-black dark:hover:text-white'}`}>{t('announcements')}</button>
+            <Button variant={activeTab === 'users' ? 'primary' : 'ghost'} onClick={() => setActiveTab('users')}>{t('members')}</Button>
+            <Button variant={activeTab === 'announcements' ? 'primary' : 'ghost'} onClick={() => setActiveTab('announcements')}>{t('announcements')}</Button>
         </div>
       </div>
 
       {loading ? (
-         // Loading Skeleton
-         <div className="w-full space-y-4">
-            <div className="h-12 bg-gray-200 dark:bg-zinc-900/50 rounded-sm animate-pulse"></div>
-            <div className="h-64 bg-gray-100 dark:bg-zinc-900/50 border border-zinc-200 dark:border-zinc-800 rounded-sm animate-pulse flex items-center justify-center">
-                <div className="flex flex-col items-center gap-2">
-                    <div className="animate-spin h-6 w-6 border-2 border-zinc-400 dark:border-zinc-600 border-t-transparent rounded-full"></div>
-                    <div className="text-zinc-500 dark:text-zinc-600 font-mono text-xs">FETCHING SYSTEM DATA...</div>
-                </div>
-            </div>
+         <div className="flex items-center justify-center h-64">
+            <Spinner size="lg" />
          </div>
       ) : (
         <>
           {activeTab === 'users' ? (
-            <div className="overflow-x-auto bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-sm shadow-sm dark:shadow-none transition-colors">
-              <table className="min-w-full text-left text-sm text-zinc-600 dark:text-zinc-400">
-                <thead className="bg-gray-50 dark:bg-black text-black dark:text-zinc-200 font-bold uppercase border-b border-zinc-200 dark:border-zinc-800">
-                  <tr>
-                    <th className="px-6 py-4">Email</th>
-                    <th className="px-6 py-4">{t('nickname')}</th>
-                    <th className="px-6 py-4">{t('role')}</th>
-                    <th className="px-6 py-4">{t('status')}</th>
-                    <th className="px-6 py-4">Actions</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-zinc-200 dark:divide-zinc-800">
-                  {users.map((user) => (
-                    <tr key={user.id} className={`transition-colors ${user.status === UserStatus.DELETED ? 'opacity-40 grayscale bg-gray-100 dark:bg-zinc-950' : 'hover:bg-gray-50 dark:hover:bg-zinc-800/50'}`}>
-                      <td className="px-6 py-4 font-medium text-black dark:text-white">
-                          <div className="flex flex-col">
-                              <div className="flex items-center gap-2">
-                                {user.avatarUrl && <img src={user.avatarUrl} className="w-6 h-6 rounded-full object-cover" />}
-                                <span>{user.email}</span>
-                              </div>
-                              {user.credentialUrl && (
-                                <a href={user.credentialUrl} target="_blank" rel="noreferrer" className="text-xs text-blue-500 hover:underline mt-1">{t('view')} Credential</a>
-                              )}
-                          </div>
-                      </td>
-                      <td className="px-6 py-4">
-                          {user.nickname}
-                          <div className="flex flex-wrap gap-1 mt-1">
-                            {user.jobTags.map(t => <span key={t} className="text-[10px] border border-zinc-300 dark:border-zinc-700 px-1 rounded">{t}</span>)}
-                        </div>
-                      </td>
-                      <td className="px-6 py-4">
-                        <select 
-                            value={user.role} 
-                            onChange={(e) => handleRoleChange(user.id, e.target.value)}
-                            className="bg-transparent border border-zinc-300 dark:border-zinc-700 rounded-sm px-2 py-1 text-xs outline-none focus:border-black dark:focus:border-white"
-                        >
-                            <option value="USER">{t('USER')}</option>
-                            <option value="ADMIN">{t('ADMIN')}</option>
-                        </select>
-                      </td>
-                      <td className="px-6 py-4">
-                        <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium ${
-                            user.status === UserStatus.ACTIVE ? 'bg-green-100 dark:bg-green-900 text-green-800 dark:text-green-200' : 
-                            user.status === UserStatus.REJECTED ? 'bg-red-100 dark:bg-red-900 text-red-800 dark:text-red-200' : 
-                            user.status === UserStatus.DELETED ? 'bg-gray-200 dark:bg-zinc-800 text-zinc-600 dark:text-zinc-500' :
-                            'bg-yellow-100 dark:bg-yellow-900 text-yellow-800 dark:text-yellow-200'
-                        }`}>
-                            {t(user.status)}
-                        </span>
-                      </td>
-                      <td className="px-6 py-4 flex flex-wrap gap-2">
-                        {user.status === UserStatus.PENDING && (
-                            <>
-                                <button onClick={() => handleStatusChange(user.id, UserStatus.ACTIVE)} className="text-green-600 dark:text-green-400 hover:text-green-500 dark:hover:text-green-300 border border-green-600 dark:border-green-900 hover:bg-green-50 dark:hover:bg-green-900/30 px-2 py-1 rounded-sm transition-colors">{t('approve')}</button>
-                                <button onClick={() => handleStatusChange(user.id, UserStatus.REJECTED)} className="text-red-600 dark:text-red-400 hover:text-red-500 dark:hover:text-red-300 border border-red-600 dark:border-red-900 hover:bg-red-50 dark:hover:bg-red-900/30 px-2 py-1 rounded-sm transition-colors">{t('reject')}</button>
-                            </>
-                        )}
-                        
-                        {user.status === UserStatus.ACTIVE && (
-                            <button onClick={() => handleStatusChange(user.id, UserStatus.REJECTED)} className="text-yellow-600 dark:text-yellow-400 hover:text-yellow-500 dark:hover:text-yellow-300 text-xs border border-transparent hover:border-yellow-600 dark:hover:border-yellow-900 px-2 py-1 rounded-sm transition-colors">{t('suspend')}</button>
-                        )}
+            <div className="space-y-12">
+                {approvingUser && (
+                    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm p-4 animate-fadeIn">
+                        <div className="bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 p-6 rounded-sm w-full max-w-md shadow-2xl">
+                            <h3 className="text-xl font-bold mb-2 text-black dark:text-white">APPROVE MEMBER</h3>
+                            <p className="text-sm text-zinc-500 mb-6">Set expiration for <span className="font-bold">{approvingUser.nickname}</span>.</p>
+                            
+                            <div className="mb-6">
+                                <label className="block text-xs font-bold text-zinc-500 uppercase tracking-wider mb-2">EXPIRATION DATE</label>
+                                <input 
+                                    type="date" 
+                                    required
+                                    value={approvalExpDate}
+                                    onChange={(e) => setApprovalExpDate(e.target.value)}
+                                    className="w-full bg-gray-50 dark:bg-black border border-zinc-300 dark:border-zinc-700 p-3 rounded-sm text-black dark:text-white focus:border-black dark:focus:border-white outline-none"
+                                />
+                            </div>
 
-                        {user.status !== UserStatus.DELETED && (
-                            <button onClick={() => handleStatusChange(user.id, UserStatus.DELETED)} className="text-white bg-red-600 dark:bg-red-900/50 hover:bg-red-700 dark:hover:bg-red-900 px-2 py-1 rounded-sm text-xs transition-colors border border-red-600 dark:border-red-900">
-                                {t('delete')}
-                            </button>
-                        )}
-                        
-                        {user.status === UserStatus.DELETED && (
-                             <button onClick={() => handleStatusChange(user.id, UserStatus.ACTIVE)} className="text-zinc-500 dark:text-zinc-400 hover:text-black dark:hover:text-white bg-zinc-200 dark:bg-zinc-800 hover:bg-zinc-300 dark:hover:bg-zinc-700 px-2 py-1 rounded-sm text-xs transition-colors">
-                                {t('restore')}
-                             </button>
-                        )}
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
+                            <div className="flex gap-3">
+                                <Button variant="secondary" onClick={cancelApproval} className="flex-1">CANCEL</Button>
+                                <Button variant="primary" onClick={confirmApproval} className="flex-1">CONFIRM</Button>
+                            </div>
+                        </div>
+                    </div>
+                )}
+
+                {editingUser && (
+                    <EditUserModal user={editingUser} onClose={() => setEditingUser(null)} onSave={handleEditSave} />
+                )}
+
+                {newApplications.length > 0 && (
+                     <div>
+                        <div className="flex items-center gap-2 mb-4">
+                            <Badge variant="dot" />
+                            <h2 className="text-lg font-bold text-black dark:text-white tracking-widest uppercase">New Applications</h2>
+                        </div>
+                        <UserTable users={newApplications} onStatusChange={handleStatusChange} onEdit={handleEditClick} onApprove={initiateApproval} />
+                     </div>
+                )}
+
+                {renewalApplications.length > 0 && (
+                     <div>
+                        <div className="flex items-center gap-2 mb-4">
+                            <Badge variant="dot" />
+                            <h2 className="text-lg font-bold text-black dark:text-white tracking-widest uppercase">Renewal Requests</h2>
+                        </div>
+                        <UserTable users={renewalApplications} onStatusChange={handleStatusChange} onEdit={handleEditClick} onApprove={initiateApproval} isRenewal />
+                     </div>
+                )}
+
+                <div>
+                     <h2 className="text-lg font-bold text-zinc-500 dark:text-zinc-400 tracking-widest uppercase mb-4">Member Database</h2>
+                     <UserTable users={activeUsers} onStatusChange={handleStatusChange} onEdit={handleEditClick} onApprove={initiateApproval} />
+                </div>
             </div>
           ) : (
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
@@ -211,15 +326,8 @@ const AdminDashboard: React.FC = () => {
                             <textarea value={annContent} onChange={e => setAnnContent(e.target.value)} className="w-full h-32 bg-gray-50 dark:bg-black border border-zinc-300 dark:border-zinc-700 p-2 text-black dark:text-white rounded-sm focus:border-black dark:focus:border-white outline-none resize-none" />
                         </div>
                         <div className="flex gap-2">
-                             {editId && (
-                                 <button type="button" onClick={handleCancelEdit} className="flex-1 bg-gray-200 dark:bg-zinc-800 text-black dark:text-white font-bold py-2 rounded-sm text-sm">
-                                     {t('cancel')}
-                                 </button>
-                             )}
-                             <button type="submit" disabled={posting} className="flex-1 bg-black dark:bg-white text-white dark:text-black font-bold py-2 rounded-sm hover:bg-zinc-800 dark:hover:bg-gray-200 flex justify-center items-center gap-2 transition-colors text-sm">
-                                {posting && <span className="animate-spin h-3 w-3 border-2 border-white dark:border-black border-t-transparent rounded-full"></span>}
-                                {editId ? t('update') : t('publish')}
-                            </button>
+                             {editId && <Button variant="secondary" onClick={handleCancelEdit} className="flex-1">{t('cancel')}</Button>}
+                             <Button variant="primary" type="submit" isLoading={posting} className="flex-1">{editId ? t('update') : t('publish')}</Button>
                         </div>
                     </form>
                 </div>
@@ -233,8 +341,8 @@ const AdminDashboard: React.FC = () => {
                                 <div className="flex items-center gap-4">
                                     <span className="text-xs text-zinc-500">{new Date(ann.createdAt).toLocaleDateString()}</span>
                                     <div className="opacity-0 group-hover:opacity-100 transition-opacity flex gap-2">
-                                        <button onClick={() => handleEditAnn(ann)} className="text-xs text-blue-500 hover:underline">{t('edit')}</button>
-                                        <button onClick={() => handleDeleteAnn(ann.id)} className="text-xs text-red-500 hover:underline">{t('delete')}</button>
+                                        <Button variant="ghost" size="sm" onClick={() => handleEditAnn(ann)}>{t('edit')}</Button>
+                                        <Button variant="ghost" size="sm" onClick={() => handleDeleteAnn(ann.id)} className="text-red-500">{t('delete')}</Button>
                                     </div>
                                 </div>
                             </div>
@@ -249,5 +357,106 @@ const AdminDashboard: React.FC = () => {
     </div>
   );
 };
+
+const UserTable = ({ users, onStatusChange, onEdit, onApprove, isRenewal = false }: { 
+    users: User[], 
+    onStatusChange: (id: string, s: UserStatus) => void, 
+    onEdit: (user: User) => void,
+    onApprove: (user: User) => void,
+    isRenewal?: boolean
+}) => {
+    const { t } = useApp();
+    return (
+        <div className="overflow-x-auto bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-sm shadow-sm dark:shadow-none transition-colors">
+              <table className="min-w-full text-left text-sm text-zinc-600 dark:text-zinc-400">
+                <thead className="bg-gray-50 dark:bg-black text-black dark:text-zinc-200 font-bold uppercase border-b border-zinc-200 dark:border-zinc-800">
+                  <tr>
+                    <th className="px-6 py-4">User</th>
+                    <th className="px-6 py-4">Info</th>
+                    <th className="px-6 py-4">{t('role')}</th>
+                    <th className="px-6 py-4">{t('status')}</th>
+                    <th className="px-6 py-4">Actions</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-zinc-200 dark:divide-zinc-800">
+                  {users.map((user) => (
+                    <tr key={user.id} className={`transition-colors ${user.status === UserStatus.DELETED ? 'opacity-40 grayscale bg-gray-100 dark:bg-zinc-950' : 'hover:bg-gray-50 dark:hover:bg-zinc-800/50'}`}>
+                      <td className="px-6 py-4 font-medium text-black dark:text-white">
+                          <div className="flex flex-col gap-1">
+                              <div className="flex items-center gap-2">
+                                {user.avatarUrl && <img src={user.avatarUrl} className="w-6 h-6 rounded-full object-cover" />}
+                                <span>{user.nickname}</span>
+                              </div>
+                              <span className="text-xs text-zinc-500">{user.email}</span>
+                          </div>
+                      </td>
+                      <td className="px-6 py-4">
+                          <div className="flex flex-col gap-1">
+                            <div className="flex flex-wrap gap-1">
+                                {user.jobTags && user.jobTags.length > 0 ? user.jobTags.map(tag => (
+                                    <Badge key={tag} variant="outline">{tag}</Badge>
+                                )) : <span className="text-xs text-zinc-400">-</span>}
+                            </div>
+                            {user.credentialUrl && (
+                                <div className="mt-1">
+                                    <ImagePreview 
+                                        src={user.credentialUrl} 
+                                        alt="Credential"
+                                        className="inline-block"
+                                        thumbnailClassName="h-6 w-auto border border-zinc-300 dark:border-zinc-700 rounded-sm" 
+                                    />
+                                    <span className="text-[10px] ml-1 text-zinc-400 align-middle">{isRenewal ? 'NEW' : ''}</span>
+                                </div>
+                            )}
+                          </div>
+                      </td>
+                      <td className="px-6 py-4 font-mono text-xs">
+                        {user.role}
+                      </td>
+                      <td className="px-6 py-4">
+                        <div className="flex flex-col items-start gap-1">
+                            <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium ${
+                                user.status === UserStatus.ACTIVE ? 'bg-green-100 dark:bg-green-900 text-green-800 dark:text-green-200' : 
+                                user.status === UserStatus.REJECTED ? 'bg-red-100 dark:bg-red-900 text-red-800 dark:text-red-200' : 
+                                user.status === UserStatus.DELETED ? 'bg-gray-200 dark:bg-zinc-800 text-zinc-600 dark:text-zinc-500' :
+                                user.status === UserStatus.EXPIRED ? 'bg-orange-100 dark:bg-orange-900 text-orange-800 dark:text-orange-200' :
+                                'bg-yellow-100 dark:bg-yellow-900 text-yellow-800 dark:text-yellow-200'
+                            }`}>
+                                {t(user.status)}
+                            </span>
+                            {user.expirationDate && (
+                                <span className="text-[10px] text-zinc-400">
+                                    Exp: {new Date(user.expirationDate).toLocaleDateString()}
+                                </span>
+                            )}
+                        </div>
+                      </td>
+                      <td className="px-6 py-4 flex flex-wrap gap-2">
+                        {user.status === UserStatus.PENDING && (
+                            <>
+                                <Button size="sm" onClick={() => onApprove(user)} className="text-green-600 border-green-200 dark:border-green-900 bg-green-50 dark:bg-green-900/20">{t('approve')}</Button>
+                                <Button size="sm" variant="danger" onClick={() => onStatusChange(user.id, UserStatus.REJECTED)}>{t('reject')}</Button>
+                            </>
+                        )}
+                        
+                        {(user.status !== UserStatus.PENDING && user.status !== UserStatus.DELETED) && (
+                            <Button size="sm" variant="secondary" onClick={() => onEdit(user)}>{t('edit')}</Button>
+                        )}
+
+                        {user.status !== UserStatus.DELETED && (
+                            <Button size="sm" variant="danger" onClick={() => onStatusChange(user.id, UserStatus.DELETED)}>DELETE</Button>
+                        )}
+                        
+                        {user.status === UserStatus.DELETED && (
+                             <Button size="sm" variant="secondary" onClick={() => onStatusChange(user.id, UserStatus.PENDING)}>{t('restore')}</Button>
+                        )}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+        </div>
+    );
+}
 
 export default AdminDashboard;
