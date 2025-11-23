@@ -1,11 +1,12 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { sendOtp, createProfile, getSession, logout } from '../services/mockBackend';
+import { useApp } from '../utils/i18n';
 
 const RegisterPage: React.FC = () => {
   const navigate = useNavigate();
+  const { t } = useApp();
   
-  // State to track if we are in "Email" mode or "Onboarding" mode
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [checkingAuth, setCheckingAuth] = useState(true);
   
@@ -14,15 +15,18 @@ const RegisterPage: React.FC = () => {
   const [nickname, setNickname] = useState('');
   const [tagInput, setTagInput] = useState('');
   const [tags, setTags] = useState<string[]>([]);
-  const [file, setFile] = useState<File | null>(null);
-  const [previewUrl, setPreviewUrl] = useState<string | null>(null);
+  
+  // Files
+  const [credFile, setCredFile] = useState<File | null>(null);
+  const [credPreview, setCredPreview] = useState<string | null>(null);
+  const [avatarFile, setAvatarFile] = useState<File | null>(null);
+  const [avatarPreview, setAvatarPreview] = useState<string | null>(null);
   
   // UI State
-  const [step, setStep] = useState<'enter_email' | 'email_sent' | 'onboarding'>('enter_email');
+  const [step, setStep] = useState<'enter_email' | 'email_sent' | 'onboarding' | 'submitted'>('enter_email');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
 
-  // Check for existing session on mount
   useEffect(() => {
       const check = async () => {
           const session = await getSession();
@@ -38,14 +42,15 @@ const RegisterPage: React.FC = () => {
 
   useEffect(() => {
     return () => {
-        if (previewUrl) URL.revokeObjectURL(previewUrl);
+        if (credPreview) URL.revokeObjectURL(credPreview);
+        if (avatarPreview) URL.revokeObjectURL(avatarPreview);
     };
-  }, [previewUrl]);
+  }, [credPreview, avatarPreview]);
 
   const handleAddTag = () => {
     if (tags.length >= 3) return;
     const val = tagInput.trim();
-    if (val && val.length <= 10 && !tags.includes(val)) {
+    if (val && val.length <= 15 && !tags.includes(val)) {
       setTags([...tags, val]);
       setTagInput('');
     }
@@ -62,23 +67,27 @@ const RegisterPage: React.FC = () => {
     setTags(tags.filter(t => t !== tag));
   };
 
-  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>, type: 'cred' | 'avatar') => {
       if (e.target.files && e.target.files[0]) {
-          const selectedFile = e.target.files[0];
-          setFile(selectedFile);
-          const url = URL.createObjectURL(selectedFile);
-          setPreviewUrl(url);
+          const f = e.target.files[0];
+          const url = URL.createObjectURL(f);
+          if (type === 'cred') {
+              setCredFile(f);
+              setCredPreview(url);
+          } else {
+              setAvatarFile(f);
+              setAvatarPreview(url);
+          }
       }
   };
 
-  // Step 1: Send Magic Link
   const handleSendLink = async (e: React.FormEvent) => {
     e.preventDefault();
     setError('');
     setLoading(true);
     
     try {
-      const res = await sendOtp(email, true); // true = isRegistration
+      const res = await sendOtp(email, true);
       if (res.success) {
         setStep('email_sent');
       } else {
@@ -91,7 +100,6 @@ const RegisterPage: React.FC = () => {
     }
   };
 
-  // Step 2: Create Profile (After Magic Link Click)
   const handleCompleteProfile = async (e: React.FormEvent) => {
       e.preventDefault();
       setError('');
@@ -100,7 +108,7 @@ const RegisterPage: React.FC = () => {
         setError('Please add at least one profession tag.');
         return;
       }
-      if (!file) {
+      if (!credFile) {
         setError('Membership credential image is required.');
         return;
       }
@@ -111,12 +119,12 @@ const RegisterPage: React.FC = () => {
           const res = await createProfile({
               nickname,
               jobTags: tags,
-              credentialFile: file
+              credentialFile: credFile,
+              avatarFile: avatarFile || undefined
           });
 
           if (res.success) {
-              // Force reload to update App.tsx state
-              window.location.reload();
+              setStep('submitted');
           } else {
               setError(res.error || 'Profile creation failed.');
           }
@@ -132,23 +140,28 @@ const RegisterPage: React.FC = () => {
       window.location.reload();
   };
 
-  if (checkingAuth) return <div className="min-h-screen bg-black flex items-center justify-center text-zinc-500">LOADING...</div>;
+  const handleGoHome = () => {
+      navigate('/');
+      window.location.reload();
+  };
+
+  if (checkingAuth) return <div className="min-h-screen bg-white dark:bg-black flex items-center justify-center text-zinc-500">{t('processing')}</div>;
 
   return (
-    <div className="min-h-screen py-12 px-4 sm:px-6 lg:px-8 flex justify-center">
+    <div className="min-h-screen py-12 px-4 sm:px-6 lg:px-8 flex justify-center bg-gray-50 dark:bg-nothing-black transition-colors duration-300">
       <div className="max-w-xl w-full space-y-8">
         <div>
-          <h2 className="text-3xl font-bold tracking-tighter text-white">
-              {step === 'onboarding' ? 'COMPLETE REGISTRATION' : 'APPLY FOR MEMBERSHIP'}
+          <h2 className="text-3xl font-bold tracking-tighter text-black dark:text-white">
+              {step === 'onboarding' ? t('complete_reg') : step === 'submitted' ? t('pending_title') : t('apply_membership')}
           </h2>
           <p className="mt-2 text-sm text-zinc-500">
-              {step === 'onboarding' ? `Authenticated as ${email}` : 'Join the 2,000.'}
+              {step === 'onboarding' ? `${email}` : step === 'submitted' ? '' : t('join_2000')}
           </p>
         </div>
 
-        <div className="bg-zinc-900/30 border border-zinc-800 p-8 rounded-sm backdrop-blur-sm">
+        <div className="bg-white dark:bg-zinc-900/30 border border-zinc-200 dark:border-zinc-800 p-8 rounded-sm backdrop-blur-sm shadow-sm dark:shadow-none transition-colors">
            {error && (
-            <div className="mb-6 p-3 bg-red-900/20 border border-red-800 text-red-400 text-sm rounded-sm flex items-center">
+            <div className="mb-6 p-3 bg-red-100 dark:bg-red-900/20 border border-red-200 dark:border-red-800 text-red-600 dark:text-red-400 text-sm rounded-sm flex items-center">
               <span className="mr-2">⚠️</span> {error}
             </div>
           )}
@@ -156,33 +169,33 @@ const RegisterPage: React.FC = () => {
           {step === 'enter_email' && (
             <form onSubmit={handleSendLink} className="space-y-6">
               <div>
-                <label className="block text-xs font-bold text-zinc-500 uppercase tracking-wider mb-1">Email Address</label>
+                <label className="block text-xs font-bold text-zinc-500 uppercase tracking-wider mb-1">{t('email_label')}</label>
                 <input type="email" required value={email} onChange={e => setEmail(e.target.value)}
-                  className="mt-1 block w-full bg-black border border-zinc-700 rounded-sm py-3 px-4 text-white focus:border-white focus:outline-none transition-colors placeholder-zinc-700" placeholder="you@example.com" />
+                  className="mt-1 block w-full bg-gray-50 dark:bg-black border border-zinc-300 dark:border-zinc-700 rounded-sm py-3 px-4 text-black dark:text-white focus:border-black dark:focus:border-white focus:outline-none transition-colors placeholder-zinc-400 dark:placeholder-zinc-700" placeholder="you@example.com" />
               </div>
-               <div className="bg-yellow-900/10 border border-yellow-900/30 p-3 rounded-sm">
-                   <p className="text-xs text-yellow-500 leading-relaxed">
-                       <strong>Security Notice:</strong> We use Magic Links for passwordless access. Anyone with the link can access your account. Do not share the email link with anyone.
+               <div className="bg-yellow-50 dark:bg-yellow-900/10 border border-yellow-200 dark:border-yellow-900/30 p-3 rounded-sm">
+                   <p className="text-xs text-yellow-700 dark:text-yellow-500 leading-relaxed">
+                       <strong>{t('security_notice')}</strong> {t('security_desc')}
                    </p>
                </div>
 
               <button type="submit" disabled={loading}
-                className="w-full flex justify-center items-center gap-2 py-4 px-4 border border-transparent text-sm font-bold rounded-sm text-black bg-white hover:bg-zinc-200 transition-colors disabled:opacity-50 disabled:cursor-not-allowed">
-                {loading ? 'SENDING...' : 'SEND VERIFICATION LINK'}
+                className="w-full flex justify-center items-center gap-2 py-4 px-4 border border-transparent text-sm font-bold rounded-sm text-white dark:text-black bg-black dark:bg-white hover:bg-zinc-800 dark:hover:bg-zinc-200 transition-colors disabled:opacity-50 disabled:cursor-not-allowed">
+                {loading ? t('processing') : t('send_verify')}
               </button>
             </form>
           )}
 
           {step === 'email_sent' && (
             <div className="text-center space-y-6">
-                <div className="inline-block p-4 rounded-full bg-black border border-zinc-700 animate-pulse">
-                    <svg className="w-8 h-8 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"></path></svg>
+                <div className="inline-block p-4 rounded-full bg-gray-100 dark:bg-black border border-zinc-200 dark:border-zinc-700 animate-pulse">
+                    <svg className="w-8 h-8 text-black dark:text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"></path></svg>
                 </div>
                 <div>
-                    <h3 className="text-xl font-bold text-white">Check your email</h3>
-                    <p className="text-zinc-500 text-sm mt-2">We've sent a confirmation link to <span className="text-white">{email}</span>.</p>
-                    <p className="text-zinc-400 text-xs mt-4 bg-zinc-900 p-2 rounded border border-zinc-800">
-                       Click the link in the email to return here and complete your profile setup.
+                    <h3 className="text-xl font-bold text-black dark:text-white">{t('check_email_header')}</h3>
+                    <p className="text-zinc-500 text-sm mt-2">{t('link_sent_desc')} <span className="text-black dark:text-white font-bold">{email}</span>.</p>
+                    <p className="text-zinc-500 dark:text-zinc-400 text-xs mt-4 bg-gray-100 dark:bg-zinc-900 p-2 rounded border border-zinc-200 dark:border-zinc-800">
+                       {t('check_email_reg_desc')}
                     </p>
                 </div>
             </div>
@@ -190,59 +203,77 @@ const RegisterPage: React.FC = () => {
 
           {step === 'onboarding' && (
             <form onSubmit={handleCompleteProfile} className="space-y-6">
+                
+                {/* Avatar */}
+                <div className="flex justify-center mb-6">
+                    <div className="relative group cursor-pointer">
+                        <div className={`w-24 h-24 rounded-full overflow-hidden border-2 ${avatarPreview ? 'border-black dark:border-white' : 'border-zinc-300 dark:border-zinc-700 border-dashed'} flex items-center justify-center bg-gray-50 dark:bg-black`}>
+                             {avatarPreview ? (
+                                 <img src={avatarPreview} alt="Avatar" className="w-full h-full object-cover" />
+                             ) : (
+                                 <span className="text-xs text-zinc-400 text-center px-2">{t('avatar_upload')}</span>
+                             )}
+                        </div>
+                        <input type="file" onChange={(e) => handleFileChange(e, 'avatar')} className="absolute inset-0 opacity-0 cursor-pointer" accept="image/*" />
+                        <div className="absolute bottom-0 right-0 bg-black dark:bg-white text-white dark:text-black rounded-full p-1 border border-white dark:border-black">
+                             <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 4v16m8-8H4"></path></svg>
+                        </div>
+                    </div>
+                </div>
+
                 {/* Nickname */}
                 <div>
-                    <label className="block text-xs font-bold text-zinc-500 uppercase tracking-wider mb-1">Nickname</label>
+                    <label className="block text-xs font-bold text-zinc-500 uppercase tracking-wider mb-1">{t('nickname')}</label>
                     <input type="text" required value={nickname} onChange={e => setNickname(e.target.value)}
-                    className="mt-1 block w-full bg-black border border-zinc-700 rounded-sm py-3 px-4 text-white focus:border-white focus:outline-none transition-colors placeholder-zinc-700" placeholder="CyberPunk2077" />
+                    className="mt-1 block w-full bg-gray-50 dark:bg-black border border-zinc-300 dark:border-zinc-700 rounded-sm py-3 px-4 text-black dark:text-white focus:border-black dark:focus:border-white focus:outline-none transition-colors placeholder-zinc-400 dark:placeholder-zinc-700" placeholder="CyberPunk2077" />
                 </div>
 
                 {/* Tags */}
                 <div>
-                    <label className="block text-xs font-bold text-zinc-500 uppercase tracking-wider mb-1">Profession / Identity (Max 3)</label>
+                    <label className="block text-xs font-bold text-zinc-500 uppercase tracking-wider mb-1">{t('profession_tags')}</label>
                     <div className="flex flex-wrap gap-2 mb-2 min-h-[28px]">
                     {tags.map(tag => (
-                        <span key={tag} className="inline-flex items-center px-2.5 py-1 rounded-sm text-xs font-bold bg-white text-black border border-white animate-fadeIn">
+                        <span key={tag} className="inline-flex items-center px-2.5 py-1 rounded-sm text-xs font-bold bg-black dark:bg-white text-white dark:text-black border border-black dark:border-white animate-fadeIn">
                         {tag}
-                        <button type="button" onClick={() => removeTag(tag)} className="ml-2 text-zinc-500 hover:text-red-500 font-bold">×</button>
+                        <button type="button" onClick={() => removeTag(tag)} className="ml-2 text-zinc-300 dark:text-zinc-500 hover:text-red-500 font-bold">×</button>
                         </span>
                     ))}
                     </div>
                     <div className="flex gap-2">
                     <input type="text" value={tagInput} onChange={e => setTagInput(e.target.value)} onKeyDown={handleKeyDown}
                         disabled={tags.length >= 3}
-                        placeholder={tags.length >= 3 ? "Max tags reached" : "Type and press Enter"}
-                        className="flex-1 bg-black border border-zinc-700 rounded-sm py-2 px-4 text-white text-sm focus:border-white focus:outline-none disabled:opacity-50 transition-colors" />
+                        placeholder={tags.length >= 3 ? "Max tags reached" : t('add_tag_placeholder')}
+                        className="flex-1 bg-gray-50 dark:bg-black border border-zinc-300 dark:border-zinc-700 rounded-sm py-2 px-4 text-black dark:text-white text-sm focus:border-black dark:focus:border-white focus:outline-none disabled:opacity-50 transition-colors" />
                     <button type="button" onClick={handleAddTag} disabled={tags.length >= 3}
-                        className="bg-zinc-800 border border-zinc-700 px-4 py-2 rounded-sm text-white text-sm hover:bg-zinc-700 disabled:opacity-50 font-bold transition-colors">ADD</button>
+                        className="bg-zinc-200 dark:bg-zinc-800 border border-zinc-300 dark:border-zinc-700 px-4 py-2 rounded-sm text-black dark:text-white text-sm hover:bg-zinc-300 dark:hover:bg-zinc-700 disabled:opacity-50 font-bold transition-colors">{t('add')}</button>
                     </div>
                 </div>
 
                 {/* Credential Image */}
                 <div>
-                    <label className="block text-xs font-bold text-zinc-500 uppercase tracking-wider mb-1">Credential Upload</label>
+                    <label className="block text-xs font-bold text-zinc-500 uppercase tracking-wider mb-1">{t('credential_upload')}</label>
                     
-                    {!previewUrl ? (
-                        <div className="mt-1 flex justify-center px-6 pt-5 pb-6 border-2 border-zinc-800 border-dashed rounded-sm hover:border-zinc-600 transition-colors cursor-pointer relative group">
-                            <input id="file-upload" name="file-upload" type="file" accept="image/*" className="absolute inset-0 w-full h-full opacity-0 cursor-pointer" 
-                                onChange={handleFileChange} />
+                    {!credPreview ? (
+                        <div className="mt-1 flex justify-center px-6 pt-5 pb-6 border-2 border-zinc-300 dark:border-zinc-800 border-dashed rounded-sm hover:border-zinc-500 dark:hover:border-zinc-600 transition-colors cursor-pointer relative group">
+                            <input type="file" accept="image/*" className="absolute inset-0 w-full h-full opacity-0 cursor-pointer" 
+                                onChange={(e) => handleFileChange(e, 'cred')} />
                             <div className="space-y-1 text-center pointer-events-none">
-                                <svg className="mx-auto h-12 w-12 text-zinc-600 group-hover:text-zinc-400 transition-colors" stroke="currentColor" fill="none" viewBox="0 0 48 48">
+                                <svg className="mx-auto h-12 w-12 text-zinc-400 dark:text-zinc-600 group-hover:text-zinc-600 dark:group-hover:text-zinc-400 transition-colors" stroke="currentColor" fill="none" viewBox="0 0 48 48">
                                 <path d="M28 8H12a4 4 0 00-4 4v20m32-12v8m0 0v8a4 4 0 01-4 4H12a4 4 0 01-4-4v-4m32-4l-3.172-3.172a4 4 0 00-5.656 0L28 28M8 32l9.172-9.172a4 4 0 015.656 0L28 28m0 0l4 4m4-24h8m-4-4v8m-12 4h.02" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
                                 </svg>
-                                <div className="flex text-sm text-zinc-400 justify-center">
-                                    <span className="relative cursor-pointer font-medium text-white group-hover:underline">Upload Image</span>
+                                <div className="flex text-sm text-zinc-500 dark:text-zinc-400 justify-center">
+                                    <span className="relative cursor-pointer font-medium text-black dark:text-white group-hover:underline">{t('upload_text')}</span>
                                 </div>
-                                <p className="text-xs text-zinc-600">PNG, JPG up to 10MB</p>
+                                <p className="text-xs text-zinc-500 dark:text-zinc-600">{t('upload_hint')}</p>
                             </div>
                         </div>
                     ) : (
-                        <div className="mt-1 relative border border-zinc-700 rounded-sm overflow-hidden group bg-black">
-                            <img src={previewUrl} alt="Preview" className="w-full h-auto max-h-64 object-contain" />
+                        <div className="mt-1 relative border border-zinc-300 dark:border-zinc-700 rounded-sm overflow-hidden group bg-black">
+                            <img src={credPreview} alt="Preview" className="w-full h-auto max-h-64 object-contain" />
                             <div className="absolute top-0 right-0 p-2">
                                 <button 
                                     type="button"
-                                    onClick={() => { setFile(null); setPreviewUrl(null); }}
+                                    onClick={() => { setCredFile(null); setCredPreview(null); }}
                                     className="bg-black/80 text-white p-1.5 rounded-full hover:bg-red-900 transition-colors border border-zinc-700"
                                 >
                                     <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12"></path></svg>
@@ -253,16 +284,38 @@ const RegisterPage: React.FC = () => {
                 </div>
 
                 <div className="flex gap-4">
-                    <button type="button" onClick={handleCancelOnboarding} className="px-4 py-4 bg-zinc-800 text-white text-sm font-bold rounded-sm hover:bg-zinc-700">
-                        CANCEL
+                    <button type="button" onClick={handleCancelOnboarding} className="px-4 py-4 bg-zinc-200 dark:bg-zinc-800 text-black dark:text-white text-sm font-bold rounded-sm hover:bg-zinc-300 dark:hover:bg-zinc-700">
+                        {t('cancel')}
                     </button>
                     <button type="submit" disabled={loading}
-                        className="flex-1 flex justify-center items-center gap-2 py-4 px-4 border border-transparent text-sm font-bold rounded-sm text-black bg-white hover:bg-zinc-200 transition-colors disabled:opacity-50 disabled:cursor-not-allowed">
-                        {loading && <span className="animate-spin h-4 w-4 border-2 border-black border-t-transparent rounded-full"></span>}
-                        {loading ? 'FINALIZING...' : 'COMPLETE REGISTRATION'}
+                        className="flex-1 flex justify-center items-center gap-2 py-4 px-4 border border-transparent text-sm font-bold rounded-sm text-white dark:text-black bg-black dark:bg-white hover:bg-zinc-800 dark:hover:bg-zinc-200 transition-colors disabled:opacity-50 disabled:cursor-not-allowed">
+                        {loading && <span className="animate-spin h-4 w-4 border-2 border-white dark:border-black border-t-transparent rounded-full"></span>}
+                        {loading ? t('finalizing') : t('complete_btn')}
                     </button>
                 </div>
             </form>
+          )}
+
+          {step === 'submitted' && (
+             <div className="text-center space-y-6 py-8">
+                 <div className="inline-block p-4 rounded-full bg-green-100 dark:bg-green-900/20 border border-green-300 dark:border-green-900">
+                     <svg className="w-12 h-12 text-green-600 dark:text-green-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                     </svg>
+                 </div>
+                 <div>
+                     <h3 className="text-2xl font-bold text-black dark:text-white">{t('pending_title')}</h3>
+                     <p className="text-zinc-600 dark:text-zinc-400 text-base mt-4 max-w-xs mx-auto leading-relaxed">
+                        {t('pending_desc')}
+                     </p>
+                     <div className="mt-6 p-4 bg-zinc-100 dark:bg-zinc-800/50 rounded border border-zinc-200 dark:border-zinc-700 text-sm text-zinc-500">
+                        {t('pending_status_check')}
+                     </div>
+                 </div>
+                 <button onClick={handleGoHome} className="text-sm font-bold underline decoration-2 text-black dark:text-white hover:text-zinc-600 dark:hover:text-zinc-300">
+                     {t('return_home')}
+                 </button>
+             </div>
           )}
         </div>
       </div>

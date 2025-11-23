@@ -3,6 +3,7 @@ import { HashRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { Navbar } from '../components/Navbar';
 import { User, UserRole, UserStatus } from '../types';
 import { getCurrentUser, logout, isBackendConfigured, configureBackend, getSession } from '../services/mockBackend';
+import { AppProvider } from '../utils/i18n';
 
 // Pages
 import LandingPage from './pages/LandingPage';
@@ -33,9 +34,9 @@ const ProtectedRoute: React.FC<ProtectedRouteProps> = ({ user, children, role, r
   return <>{children}</>;
 };
 
-const App: React.FC = () => {
+const AppContent: React.FC = () => {
   const [user, setUser] = useState<User | null>(null);
-  const [hasSession, setHasSession] = useState(false); // Track if auth session exists regardless of profile
+  const [hasSession, setHasSession] = useState(false);
   const [loading, setLoading] = useState(true);
   const [isConfigured, setIsConfigured] = useState(isBackendConfigured());
   const [configError, setConfigError] = useState(false);
@@ -95,21 +96,21 @@ const App: React.FC = () => {
 
   if (!isConfigured) {
       return (
-        <div className="min-h-screen bg-black text-white flex flex-col items-center justify-center px-4">
-            <div className="max-w-md w-full bg-zinc-900 border border-zinc-800 p-8 rounded-sm">
+        <div className="min-h-screen bg-white dark:bg-black text-black dark:text-white flex flex-col items-center justify-center px-4 transition-colors duration-300">
+            <div className="max-w-md w-full bg-gray-100 dark:bg-zinc-900 border border-zinc-300 dark:border-zinc-800 p-8 rounded-sm">
                 <h1 className="text-2xl font-bold mb-2">SYSTEM INITIALIZATION</h1>
                 <p className="text-zinc-500 text-sm mb-6">Connect to your Supabase Backend to deploy the NOTHING portal.</p>
                 
                 <form onSubmit={handleConfigure} className="space-y-4">
                     <div>
-                        <label className="block text-xs font-bold text-zinc-400 mb-1">SUPABASE PROJECT URL</label>
-                        <input value={sbUrl} onChange={e => setSbUrl(e.target.value)} className="w-full bg-black border border-zinc-700 p-2 text-white text-sm rounded-sm focus:border-white outline-none" placeholder="https://xyz.supabase.co" required />
+                        <label className="block text-xs font-bold text-zinc-500 uppercase mb-1">Supabase URL</label>
+                        <input value={sbUrl} onChange={e => setSbUrl(e.target.value)} className="w-full bg-white dark:bg-black border border-zinc-300 dark:border-zinc-700 p-2 text-black dark:text-white text-sm rounded-sm focus:border-black dark:focus:border-white outline-none" placeholder="https://xyz.supabase.co" required />
                     </div>
                     <div>
-                        <label className="block text-xs font-bold text-zinc-400 mb-1">SUPABASE ANON KEY</label>
-                        <input value={sbKey} onChange={e => setSbKey(e.target.value)} className="w-full bg-black border border-zinc-700 p-2 text-white text-sm rounded-sm focus:border-white outline-none" placeholder="eyJh..." required />
+                        <label className="block text-xs font-bold text-zinc-500 uppercase mb-1">Supabase Key</label>
+                        <input value={sbKey} onChange={e => setSbKey(e.target.value)} className="w-full bg-white dark:bg-black border border-zinc-300 dark:border-zinc-700 p-2 text-black dark:text-white text-sm rounded-sm focus:border-black dark:focus:border-white outline-none" placeholder="eyJh..." required />
                     </div>
-                    <button type="submit" className="w-full bg-white text-black font-bold py-2 rounded-sm hover:bg-gray-200 text-sm mt-4">INITIALIZE SYSTEM</button>
+                    <button type="submit" className="w-full bg-black dark:bg-white text-white dark:text-black font-bold py-2 rounded-sm hover:bg-zinc-800 dark:hover:bg-gray-200 text-sm mt-4 transition-colors">INITIALIZE SYSTEM</button>
                 </form>
             </div>
         </div>
@@ -118,8 +119,8 @@ const App: React.FC = () => {
 
   if (loading) {
       return (
-        <div className="h-screen w-full bg-black flex flex-col items-center justify-center gap-4">
-             <div className="text-zinc-500 animate-pulse tracking-widest">CONNECTING TO NOTHING...</div>
+        <div className="h-screen w-full bg-white dark:bg-black flex flex-col items-center justify-center gap-4 transition-colors duration-300">
+             <div className="text-zinc-400 dark:text-zinc-500 animate-pulse tracking-widest">CONNECTING TO NOTHING...</div>
              {configError && (
                  <button onClick={handleResetConfig} className="text-xs text-red-500 hover:text-red-400 underline">
                      Connection taking too long. Reset Configuration?
@@ -131,7 +132,7 @@ const App: React.FC = () => {
 
   return (
     <HashRouter>
-      <div className="min-h-screen bg-nothing-black text-nothing-white selection:bg-white selection:text-black font-sans">
+      <div className="min-h-screen bg-white dark:bg-nothing-black text-black dark:text-nothing-white selection:bg-black selection:text-white dark:selection:bg-white dark:selection:text-black font-sans transition-colors duration-300">
         <Navbar user={user} onLogout={handleLogout} />
         
         <main className="w-full">
@@ -171,6 +172,14 @@ const App: React.FC = () => {
       </div>
     </HashRouter>
   );
+};
+
+const App: React.FC = () => {
+    return (
+        <AppProvider>
+            <AppContent />
+        </AppProvider>
+    );
 };
 
 export default App;

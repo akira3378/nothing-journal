@@ -7,6 +7,7 @@
     <script src="https://cdn.tailwindcss.com"></script>
     <script>
       tailwind.config = {
+        darkMode: 'class',
         theme: {
           extend: {
             colors: {
@@ -21,6 +22,15 @@
             },
             fontFamily: {
               sans: ['Inter', 'system-ui', 'sans-serif'],
+            },
+            animation: {
+              fadeIn: 'fadeIn 0.3s ease-in-out',
+            },
+            keyframes: {
+              fadeIn: {
+                '0%': { opacity: '0' },
+                '100%': { opacity: '1' },
+              }
             }
           }
         }
@@ -28,6 +38,11 @@
     </script>
     <style>
       body {
+        /* Default to light mode colors */
+        background-color: #ffffff; 
+        color: #000000;
+      }
+      .dark body {
         background-color: #050505;
         color: #ffffff;
       }
@@ -35,10 +50,10 @@
         width: 8px;
       }
       ::-webkit-scrollbar-track {
-        background: #121212; 
+        background: transparent; 
       }
       ::-webkit-scrollbar-thumb {
-        background: #333; 
+        background: #888; 
         border-radius: 4px;
       }
       ::-webkit-scrollbar-thumb:hover {
@@ -53,14 +68,14 @@
     "react-router-dom": "https://esm.sh/react-router-dom@6.22.0?deps=react@18.2.0,react-dom@18.2.0",
     "@supabase/supabase-js": "https://esm.sh/@supabase/supabase-js@2.39.3",
     "react-dom/": "https://aistudiocdn.com/react-dom@^19.2.0/",
-    "react/": "https://aistudiocdn.com/react@^19.2.0/"
+    "react/": "https://aistudiocdn.com/react@^19.2.0/",
+    "react-dom": "https://aistudiocdn.com/react-dom@^19.2.0"
   }
 }
 </script>
 </head>
-  <body>
+  <body class="bg-white text-black dark:bg-nothing-black dark:text-white transition-colors duration-300">
     <div id="root"></div>
-    <!-- Crucial: Load the application entry point -->
     <script type="module" src="/index.tsx"></script>
   </body>
 </html>

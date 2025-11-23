@@ -1,12 +1,16 @@
 import React, { useState } from 'react';
-import { User } from '../types';
+import { User, UserStatus } from '../types';
 import { updateUserProfile } from '../services/mockBackend';
+import { useApp } from '../utils/i18n';
+import { ImagePreview } from '../components/ImagePreview';
+import { formatLocalTime } from '../utils/formatters';
 
 interface ProfileProps {
   user: User;
 }
 
 const ProfilePage: React.FC<ProfileProps> = ({ user }) => {
+  const { t } = useApp();
   const [isEditing, setIsEditing] = useState(false);
   const [nickname, setNickname] = useState(user.nickname);
   const [tags, setTags] = useState<string[]>(user.jobTags);
@@ -31,7 +35,6 @@ const ProfilePage: React.FC<ProfileProps> = ({ user }) => {
     try {
         await updateUserProfile(user.id, { nickname, jobTags: tags });
         setIsEditing(false);
-        // We need to reload to fetch the new user state since it's held in App.tsx
         window.location.reload(); 
     } catch (e) {
         alert("Failed to update profile");
@@ -47,104 +50,144 @@ const ProfilePage: React.FC<ProfileProps> = ({ user }) => {
   };
 
   return (
-    <div className="max-w-4xl mx-auto px-4 py-12">
-      <div className="bg-zinc-900 border border-zinc-800 rounded-sm p-8 md:p-12 relative overflow-hidden">
-         <div className="absolute top-0 right-0 p-4 opacity-10 text-9xl font-bold select-none text-white">
-            ID
-         </div>
-         
-         {/* Edit Toggle */}
-         <div className="absolute top-4 right-4 z-20">
-             {!isEditing ? (
-                <button onClick={() => setIsEditing(true)} className="text-zinc-400 hover:text-white text-sm underline decoration-zinc-600 flex items-center gap-2">
-                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z"></path></svg>
-                    Edit Profile
-                </button>
-             ) : (
-                 <div className="flex gap-2">
-                     <button onClick={handleCancel} disabled={saving} className="text-zinc-400 hover:text-white text-xs px-2 py-1">Cancel</button>
-                     <button onClick={handleSave} disabled={saving} className="bg-white text-black px-3 py-1 text-xs font-bold rounded-sm hover:bg-zinc-200">
-                        {saving ? 'SAVING...' : 'SAVE CHANGES'}
-                     </button>
-                 </div>
-             )}
-         </div>
-
-         <div className="relative z-10 flex flex-col md:flex-row gap-8 items-start">
-            <div className="h-32 w-32 md:h-48 md:w-48 bg-black border-2 border-zinc-700 rounded-sm flex items-center justify-center text-4xl text-zinc-500 shrink-0">
-               {nickname.charAt(0).toUpperCase()}
+    <div className="max-w-4xl mx-auto px-4 py-8 md:py-16">
+        {/* Pending Banner */}
+        {user.status === UserStatus.PENDING && (
+            <div className="mb-8 bg-yellow-50 dark:bg-yellow-900/20 border-l-4 border-yellow-400 p-4 flex items-start gap-4 animate-fadeIn">
+                <div className="text-yellow-600 dark:text-yellow-500 text-xl">⚠️</div>
+                <div>
+                    <h3 className="font-bold text-yellow-800 dark:text-yellow-400 uppercase tracking-widest text-xs mb-1">{t('pending_banner')}</h3>
+                    <p className="text-sm text-yellow-700 dark:text-yellow-500">{t('pending_banner_desc')}</p>
+                </div>
             </div>
-            
-            <div className="flex-1 w-full">
-                {isEditing ? (
-                    <div className="mb-4">
-                        <label className="block text-xs text-zinc-500 mb-1">Nickname</label>
-                        <input 
-                            value={nickname} 
-                            onChange={(e) => setNickname(e.target.value)} 
-                            className="text-2xl md:text-3xl font-bold text-white bg-black border border-zinc-600 p-2 w-full rounded-sm focus:border-blue-500 outline-none" 
-                        />
+        )}
+
+      {/* Main Profile Card */}
+      <div className="bg-white dark:bg-zinc-900/50 backdrop-blur-md border border-zinc-200 dark:border-zinc-800 rounded-sm overflow-hidden shadow-lg dark:shadow-none transition-colors relative">
+         
+         {/* Decorative Background */}
+         <div className="h-32 bg-gradient-to-r from-zinc-200 to-zinc-300 dark:from-zinc-800 dark:to-zinc-900 w-full relative">
+            <div className="absolute inset-0 bg-[url('https://www.transparenttextures.com/patterns/cubes.png')] opacity-10"></div>
+            {isEditing && (
+                 <div className="absolute top-4 right-4 flex gap-2 z-20">
+                    <button onClick={handleCancel} disabled={saving} className="bg-white/80 dark:bg-black/50 text-black dark:text-white px-3 py-1 text-xs font-bold rounded-sm backdrop-blur border border-transparent hover:border-black dark:hover:border-white transition-all">{t('cancel')}</button>
+                    <button onClick={handleSave} disabled={saving} className="bg-black dark:bg-white text-white dark:text-black px-3 py-1 text-xs font-bold rounded-sm hover:opacity-80 transition-all shadow-md">
+                        {saving ? t('saving') : t('save_changes')}
+                    </button>
+                </div>
+            )}
+            {!isEditing && user.status === UserStatus.ACTIVE && (
+                <button onClick={() => setIsEditing(true)} className="absolute top-4 right-4 bg-white/50 dark:bg-black/50 p-2 rounded-full hover:bg-white dark:hover:bg-black transition-all text-black dark:text-white border border-transparent hover:border-zinc-300 dark:hover:border-zinc-600">
+                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z"></path></svg>
+                </button>
+            )}
+         </div>
+
+         <div className="px-8 pb-8">
+            <div className="flex flex-col md:flex-row gap-6">
+                {/* Avatar with Preview */}
+                <div className="-mt-16 relative">
+                    <div className="h-32 w-32 rounded-full border-4 border-white dark:border-zinc-900 bg-zinc-100 dark:bg-black flex items-center justify-center text-4xl text-zinc-400 dark:text-zinc-500 overflow-hidden shadow-md">
+                        {user.avatarUrl ? (
+                            <ImagePreview 
+                                src={user.avatarUrl} 
+                                alt="Profile" 
+                                className="w-full h-full"
+                                thumbnailClassName="w-full h-full object-cover"
+                            />
+                        ) : (
+                            <span>{nickname.charAt(0).toUpperCase()}</span>
+                        )}
                     </div>
-                ) : (
-                    <h1 className="text-3xl md:text-4xl font-bold text-white mb-2">{user.nickname}</h1>
-                )}
-                
-                <p className="text-zinc-400 font-mono mb-6 flex items-center gap-2">
-                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"></path></svg>
-                    {user.email}
-                </p>
-                
-                <div className="space-y-6">
-                    <div>
-                        <h4 className="text-xs uppercase tracking-widest text-zinc-500 mb-2">Status</h4>
-                        <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium border ${
-                            user.status === 'ACTIVE' ? 'bg-green-900/20 text-green-200 border-green-900' : 'bg-zinc-800 text-zinc-400 border-zinc-700'
-                        }`}>
-                            {user.status}
-                        </span>
+                </div>
+
+                {/* Info */}
+                <div className="pt-4 flex-1">
+                    {isEditing ? (
+                        <div className="mb-2 max-w-sm">
+                            <label className="text-xs text-zinc-400 uppercase font-bold tracking-wider mb-1 block">{t('nickname')}</label>
+                            <input 
+                                value={nickname} 
+                                onChange={(e) => setNickname(e.target.value)} 
+                                className="text-2xl font-bold text-black dark:text-white bg-transparent border-b border-zinc-300 dark:border-zinc-700 w-full focus:border-black dark:focus:border-white outline-none py-1" 
+                            />
+                        </div>
+                    ) : (
+                        <h1 className="text-3xl font-bold text-black dark:text-white tracking-tight">{user.nickname}</h1>
+                    )}
+                    
+                    <div className="flex items-center gap-2 text-zinc-500 dark:text-zinc-400 text-sm font-mono mt-1">
+                        <span>{user.email}</span>
+                        <span className="w-1 h-1 bg-zinc-400 rounded-full"></span>
+                        <span>{new Date(user.createdAt).getFullYear()}</span>
                     </div>
 
-                    <div>
-                        <h4 className="text-xs uppercase tracking-widest text-zinc-500 mb-2">Identity Tags</h4>
-                        <div className="flex flex-wrap gap-2">
-                            {tags.map(tag => (
-                                <span key={tag} className="bg-zinc-800 border border-zinc-600 text-white px-3 py-1 rounded-sm text-sm flex items-center gap-2">
-                                    {tag}
-                                    {isEditing && <button onClick={() => removeTag(tag)} className="text-red-400 text-xs hover:text-red-300 ml-1">×</button>}
-                                </span>
-                            ))}
-                        </div>
+                    <div className="mt-4 flex flex-wrap gap-2">
+                         {tags.map(tag => (
+                            <span key={tag} className="inline-flex items-center px-3 py-1 rounded-sm text-xs font-bold bg-zinc-100 dark:bg-zinc-800 text-black dark:text-zinc-200 border border-zinc-200 dark:border-zinc-700">
+                                {tag}
+                                {isEditing && <button onClick={() => removeTag(tag)} className="ml-2 text-zinc-400 hover:text-red-500">×</button>}
+                            </span>
+                        ))}
                         {isEditing && tags.length < 3 && (
-                            <div className="mt-2 flex gap-2 max-w-xs">
+                            <div className="flex items-center gap-2">
                                 <input 
                                     value={tagInput} 
                                     onChange={e => setTagInput(e.target.value)} 
                                     onKeyDown={e => e.key === 'Enter' && handleAddTag()}
-                                    placeholder="Add tag..." 
-                                    className="bg-black border border-zinc-700 text-sm px-3 py-1 text-white flex-1 outline-none focus:border-zinc-500 rounded-sm" 
+                                    placeholder={t('add_tag_placeholder')} 
+                                    className="bg-transparent border-b border-zinc-300 dark:border-zinc-700 text-sm px-2 py-1 text-black dark:text-white w-32 outline-none focus:border-black" 
                                 />
-                                <button onClick={handleAddTag} className="text-xs bg-zinc-800 px-3 py-1 text-white border border-zinc-700 hover:bg-zinc-700 rounded-sm">Add</button>
+                                <button onClick={handleAddTag} className="text-xs bg-black dark:bg-white text-white dark:text-black px-2 py-1 rounded-sm">{t('add')}</button>
                             </div>
                         )}
                     </div>
+                </div>
 
-                    <div>
-                         <h4 className="text-xs uppercase tracking-widest text-zinc-500 mb-2">Member Since</h4>
-                         <p className="text-zinc-300">{new Date(user.createdAt).toLocaleDateString()}</p>
-                    </div>
+                {/* Status Badge */}
+                <div className="pt-4 flex md:flex-col items-center md:items-end gap-2">
+                    <span className="text-xs uppercase tracking-widest text-zinc-400">{t('status')}</span>
+                    <span className={`px-3 py-1 rounded-full text-xs font-bold border ${
+                        user.status === 'ACTIVE' ? 'bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-400 border-green-200 dark:border-green-800' : 
+                        'bg-zinc-100 dark:bg-zinc-800 text-zinc-600 dark:text-zinc-400 border-zinc-200 dark:border-zinc-700'
+                    }`}>
+                        {t(user.status)}
+                    </span>
                 </div>
             </div>
-         </div>
 
-         <div className="mt-12 pt-8 border-t border-zinc-800">
-            <h3 className="text-xl font-bold text-white mb-4">Membership Credentials</h3>
-             {user.credentialUrl ? (
-                 <div className="w-full max-w-md bg-black p-2 border border-zinc-800 rounded-sm">
-                    <img src={user.credentialUrl} alt="Credential" className="w-full h-auto opacity-80 hover:opacity-100 transition-opacity" />
+            {/* Credential Section */}
+            <div className="mt-12 grid grid-cols-1 md:grid-cols-2 gap-8">
+                 <div className="p-6 bg-gray-50 dark:bg-black border border-zinc-200 dark:border-zinc-800 rounded-sm">
+                     <h3 className="text-sm font-bold text-zinc-500 uppercase tracking-widest mb-4 border-b border-zinc-200 dark:border-zinc-800 pb-2">{t('credentials')}</h3>
+                     {user.credentialUrl ? (
+                         <div className="relative group overflow-hidden rounded-sm border border-zinc-300 dark:border-zinc-700 flex justify-center bg-zinc-100 dark:bg-zinc-900 p-2">
+                            {/* Updated to use ImagePreview and removed grayscale forced style */}
+                            <ImagePreview 
+                                src={user.credentialUrl}
+                                alt="Credential"
+                                className="w-full max-w-[200px]" // Limited size as requested
+                                thumbnailClassName="w-full h-auto object-contain transition-all duration-300"
+                            />
+                         </div>
+                     ) : (
+                         <div className="h-32 flex items-center justify-center text-zinc-400 text-sm italic bg-zinc-100 dark:bg-zinc-900 rounded-sm">
+                             {t('no_cred')}
+                         </div>
+                     )}
                  </div>
-             ) : (
-                 <p className="text-zinc-500">No visual credential on file.</p>
-             )}
+                 
+                 <div className="p-6 bg-gray-50 dark:bg-black border border-zinc-200 dark:border-zinc-800 rounded-sm flex flex-col justify-between">
+                     <div>
+                        <h3 className="text-sm font-bold text-zinc-500 uppercase tracking-widest mb-4 border-b border-zinc-200 dark:border-zinc-800 pb-2">ACCOUNT ID</h3>
+                        <p className="font-mono text-xs text-zinc-600 dark:text-zinc-400 break-all select-all">{user.id}</p>
+                     </div>
+                     <div className="mt-8">
+                        <div className="w-full h-1 bg-gradient-to-r from-transparent via-zinc-300 dark:via-zinc-700 to-transparent opacity-50"></div>
+                        <p className="text-[10px] text-center text-zinc-400 mt-2 tracking-[0.2em]">AUTHENTICATED MEMBER</p>
+                     </div>
+                 </div>
+            </div>
          </div>
       </div>
     </div>

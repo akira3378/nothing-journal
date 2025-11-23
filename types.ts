@@ -16,7 +16,8 @@ export interface User {
   nickname: string;
   role: UserRole;
   status: UserStatus;
-  credentialUrl?: string; // Mock URL for the image
+  credentialUrl?: string;
+  avatarUrl?: string; // New field
   jobTags: string[];
   createdAt: number;
 }
@@ -31,6 +32,15 @@ export interface Announcement {
   isActive: boolean;
 }
 
+export interface Comment {
+  id: string;
+  postId: string;
+  userId: string;
+  user?: User;
+  content: string;
+  createdAt: number;
+}
+
 export interface Post {
   id: string;
   userId: string;
@@ -39,6 +49,8 @@ export interface Post {
   location?: string;
   createdAt: number;
   likes: number;
+  isLikedByCurrentUser?: boolean;
+  commentsCount?: number;
 }
 
 export interface AuthState {
