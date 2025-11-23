@@ -3,7 +3,7 @@ import { useNavigate, useLocation } from 'react-router-dom';
 import { sendOtp, verifyOtp, getCurrentUser, logout, renewMembership } from '../services/mockBackend';
 import { User, UserStatus } from '../types';
 import { useApp } from '../utils/i18n';
-import { ImagePreview } from '../components/ImagePreview';
+import { Icons } from '../components/UI';
 
 interface LoginProps {
   onLoginSuccess: (user: User) => void;
@@ -129,36 +129,39 @@ const LoginPage: React.FC<LoginProps> = ({ onLoginSuccess }) => {
         <div className="bg-gray-50 dark:bg-zinc-900/50 border border-zinc-200 dark:border-zinc-800 p-8 rounded-sm backdrop-blur-sm transition-colors shadow-sm dark:shadow-none">
           {error && (
             <div className="mb-4 p-3 bg-red-100 dark:bg-red-900/20 border border-red-200 dark:border-red-800 text-red-600 dark:text-red-400 text-sm rounded-sm flex items-center">
-               <span className="mr-2">⚠️</span> {error}
+               <span className="mr-2"><Icons.AlertTriangle className="w-4 h-4" /></span> {error}
             </div>
           )}
 
           {step === 'email' && (
-            <form onSubmit={handleSendCode} className="space-y-6">
-              <div>
-                <label htmlFor="email" className="block text-xs font-bold text-zinc-500 uppercase tracking-wider mb-1">{t('email_label')}</label>
-                <input
-                  id="email"
-                  type="email"
-                  required
-                  value={email}
-                  onChange={(e) => setEmail(e.target.value)}
-                  className="mt-1 block w-full bg-white dark:bg-black border border-zinc-300 dark:border-zinc-700 rounded-sm py-3 px-4 text-black dark:text-white placeholder-zinc-400 dark:placeholder-zinc-700 focus:outline-none focus:border-black dark:focus:border-white transition-colors"
-                  placeholder="member@nothing.tech"
-                />
-              </div>
-              <button
-                type="submit"
-                disabled={loading}
-                className="w-full flex justify-center items-center gap-2 py-3 px-4 border border-transparent text-sm font-bold rounded-sm text-white dark:text-black bg-black dark:bg-white hover:bg-zinc-800 dark:hover:bg-zinc-200 focus:outline-none disabled:opacity-50 disabled:cursor-not-allowed transition-all"
-              >
-                 {loading && <span className="animate-spin h-4 w-4 border-2 border-white dark:border-black border-t-transparent rounded-full"></span>}
-                {loading ? t('processing') : 'SEND CODE'}
-              </button>
-            </form>
+            <fieldset disabled={loading} className="group">
+                <form onSubmit={handleSendCode} className="space-y-6">
+                <div>
+                    <label htmlFor="email" className="block text-xs font-bold text-zinc-500 uppercase tracking-wider mb-1">{t('email_label')}</label>
+                    <input
+                    id="email"
+                    type="email"
+                    required
+                    value={email}
+                    onChange={(e) => setEmail(e.target.value)}
+                    className="mt-1 block w-full bg-white dark:bg-black border border-zinc-300 dark:border-zinc-700 rounded-sm py-3 px-4 text-black dark:text-white placeholder-zinc-400 dark:placeholder-zinc-700 focus:outline-none focus:border-black dark:focus:border-white transition-colors disabled:opacity-50"
+                    placeholder="member@nothing.tech"
+                    />
+                </div>
+                <button
+                    type="submit"
+                    disabled={loading}
+                    className="w-full flex justify-center items-center gap-2 py-3 px-4 border border-transparent text-sm font-bold rounded-sm text-white dark:text-black bg-black dark:bg-white hover:bg-zinc-800 dark:hover:bg-zinc-200 focus:outline-none disabled:opacity-50 disabled:cursor-not-allowed transition-all"
+                >
+                    {loading && <span className="animate-spin h-4 w-4 border-2 border-white dark:border-black border-t-transparent rounded-full"></span>}
+                    {loading ? t('processing') : 'SEND CODE'}
+                </button>
+                </form>
+            </fieldset>
           )} 
           
           {step === 'otp' && (
+             <fieldset disabled={loading} className="group">
              <form onSubmit={handleVerify} className="space-y-6">
                  <div className="text-center mb-6">
                      <p className="text-sm text-zinc-500">{t('link_sent_desc')} <span className="font-bold text-black dark:text-white">{email}</span></p>
@@ -173,7 +176,7 @@ const LoginPage: React.FC<LoginProps> = ({ onLoginSuccess }) => {
                         maxLength={6}
                         value={otp}
                         onChange={(e) => setOtp(e.target.value.replace(/[^0-9]/g, ''))}
-                        className="mt-1 block w-full bg-white dark:bg-black border border-zinc-300 dark:border-zinc-700 rounded-sm py-3 px-4 text-black dark:text-white text-center text-2xl tracking-[0.5em] font-mono focus:outline-none focus:border-black dark:focus:border-white transition-colors"
+                        className="mt-1 block w-full bg-white dark:bg-black border border-zinc-300 dark:border-zinc-700 rounded-sm py-3 px-4 text-black dark:text-white text-center text-2xl tracking-[0.5em] font-mono focus:outline-none focus:border-black dark:focus:border-white transition-colors disabled:opacity-50"
                         placeholder="000000"
                     />
                  </div>
@@ -187,9 +190,11 @@ const LoginPage: React.FC<LoginProps> = ({ onLoginSuccess }) => {
                     {loading ? 'VERIFYING...' : 'ENTER'}
                   </button>
              </form>
+             </fieldset>
           )}
 
           {step === 'renew' && !renewalSent && (
+              <fieldset disabled={loading} className="group">
               <form onSubmit={handleSubmitRenewal} className="space-y-6">
                   <div className="bg-yellow-50 dark:bg-yellow-900/10 border border-yellow-200 dark:border-yellow-900/30 p-3 rounded-sm">
                        <p className="text-xs text-yellow-700 dark:text-yellow-500 leading-relaxed">
@@ -202,13 +207,11 @@ const LoginPage: React.FC<LoginProps> = ({ onLoginSuccess }) => {
                     
                     {!renewPreview ? (
                         <div className="mt-1 flex justify-center px-6 pt-5 pb-6 border-2 border-zinc-300 dark:border-zinc-800 border-dashed rounded-sm hover:border-zinc-500 dark:hover:border-zinc-600 transition-colors cursor-pointer relative group">
-                            <input type="file" accept="image/*" className="absolute inset-0 w-full h-full opacity-0 cursor-pointer" 
+                            <input type="file" accept="image/*" className="absolute inset-0 w-full h-full opacity-0 cursor-pointer disabled:cursor-not-allowed" 
                                 onChange={handleFileChange} />
                             <div className="space-y-1 text-center pointer-events-none">
-                                <svg className="mx-auto h-12 w-12 text-zinc-400 dark:text-zinc-600 group-hover:text-zinc-600 dark:group-hover:text-zinc-400 transition-colors" stroke="currentColor" fill="none" viewBox="0 0 48 48">
-                                <path d="M28 8H12a4 4 0 00-4 4v20m32-12v8m0 0v8a4 4 0 01-4 4H12a4 4 0 01-4-4v-4m32-4l-3.172-3.172a4 4 0 00-5.656 0L28 28M8 32l9.172-9.172a4 4 0 015.656 0L28 28m0 0l4 4m4-24h8m-4-4v8m-12 4h.02" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
-                                </svg>
-                                <div className="flex text-sm text-zinc-500 dark:text-zinc-400 justify-center">
+                                <Icons.Camera className="mx-auto h-12 w-12 text-zinc-400 dark:text-zinc-600 group-hover:text-zinc-600 dark:group-hover:text-zinc-400" />
+                                <div className="flex text-sm text-zinc-500 dark:text-zinc-400 justify-center mt-2">
                                     <span className="relative cursor-pointer font-medium text-black dark:text-white group-hover:underline">{t('upload_text')}</span>
                                 </div>
                             </div>
@@ -220,9 +223,9 @@ const LoginPage: React.FC<LoginProps> = ({ onLoginSuccess }) => {
                                 <button 
                                     type="button"
                                     onClick={() => { setRenewFile(null); setRenewPreview(null); }}
-                                    className="bg-black/80 text-white p-1.5 rounded-full hover:bg-red-900 transition-colors border border-zinc-700"
+                                    className="bg-black/80 text-white p-1.5 rounded-full hover:bg-red-900 transition-colors border border-zinc-700 disabled:opacity-50"
                                 >
-                                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12"></path></svg>
+                                    <Icons.X className="w-4 h-4" />
                                 </button>
                             </div>
                         </div>
@@ -238,6 +241,7 @@ const LoginPage: React.FC<LoginProps> = ({ onLoginSuccess }) => {
                     {loading ? 'SUBMITTING...' : 'SUBMIT RENEWAL'}
                   </button>
               </form>
+              </fieldset>
           )}
 
           {step === 'renew' && renewalSent && (

@@ -1,9 +1,11 @@
-import React, { useState } from 'react';
-import { User, UserStatus } from '../types';
-import { updateUserProfile } from '../services/mockBackend';
+
+import React, { useState, useEffect } from 'react';
+import { User, UserStatus, Post } from '../types';
+import { updateUserProfile, getUserPosts } from '../services/mockBackend';
 import { useApp } from '../utils/i18n';
 import { ImagePreview } from '../components/ImagePreview';
-import { formatLocalTime } from '../utils/formatters';
+import { Icons, Spinner } from '../components/UI';
+import { FeedItem } from './FeedPage'; // Reusing FeedItem
 
 interface ProfileProps {
   user: User;
@@ -16,6 +18,25 @@ const ProfilePage: React.FC<ProfileProps> = ({ user }) => {
   const [tags, setTags] = useState<string[]>(user.jobTags);
   const [tagInput, setTagInput] = useState('');
   const [saving, setSaving] = useState(false);
+  
+  // Posts State
+  const [myPosts, setMyPosts] = useState<(Post & { user?: User })[]>([]);
+  const [loadingPosts, setLoadingPosts] = useState(false);
+
+  useEffect(() => {
+      const fetchMyPosts = async () => {
+          setLoadingPosts(true);
+          try {
+              const posts = await getUserPosts(user.id);
+              setMyPosts(posts);
+          } catch (e) {
+              console.error("Failed to fetch my posts");
+          } finally {
+              setLoadingPosts(false);
+          }
+      };
+      fetchMyPosts();
+  }, [user.id]);
 
   const handleAddTag = () => {
     if (tags.length >= 3) return;
@@ -54,7 +75,9 @@ const ProfilePage: React.FC<ProfileProps> = ({ user }) => {
         {/* Pending Banner */}
         {user.status === UserStatus.PENDING && (
             <div className="mb-8 bg-yellow-50 dark:bg-yellow-900/20 border-l-4 border-yellow-400 p-4 flex items-start gap-4 animate-fadeIn">
-                <div className="text-yellow-600 dark:text-yellow-500 text-xl">⚠️</div>
+                <div className="text-yellow-600 dark:text-yellow-500">
+                    <Icons.AlertTriangle className="w-6 h-6" />
+                </div>
                 <div>
                     <h3 className="font-bold text-yellow-800 dark:text-yellow-400 uppercase tracking-widest text-xs mb-1">{t('pending_banner')}</h3>
                     <p className="text-sm text-yellow-700 dark:text-yellow-500">{t('pending_banner_desc')}</p>
@@ -63,15 +86,15 @@ const ProfilePage: React.FC<ProfileProps> = ({ user }) => {
         )}
 
       {/* Main Profile Card */}
-      <div className="bg-white dark:bg-zinc-900/50 backdrop-blur-md border border-zinc-200 dark:border-zinc-800 rounded-sm overflow-hidden shadow-lg dark:shadow-none transition-colors relative">
+      <div className="bg-white dark:bg-zinc-900/50 backdrop-blur-md border border-zinc-200 dark:border-zinc-800 rounded-sm overflow-hidden shadow-lg dark:shadow-none transition-colors relative mb-12">
          
          {/* Decorative Background */}
          <div className="h-32 bg-gradient-to-r from-zinc-200 to-zinc-300 dark:from-zinc-800 dark:to-zinc-900 w-full relative">
             <div className="absolute inset-0 bg-[url('https://www.transparenttextures.com/patterns/cubes.png')] opacity-10"></div>
             {isEditing && (
                  <div className="absolute top-4 right-4 flex gap-2 z-20">
-                    <button onClick={handleCancel} disabled={saving} className="bg-white/80 dark:bg-black/50 text-black dark:text-white px-3 py-1 text-xs font-bold rounded-sm backdrop-blur border border-transparent hover:border-black dark:hover:border-white transition-all">{t('cancel')}</button>
-                    <button onClick={handleSave} disabled={saving} className="bg-black dark:bg-white text-white dark:text-black px-3 py-1 text-xs font-bold rounded-sm hover:opacity-80 transition-all shadow-md">
+                    <button onClick={handleCancel} disabled={saving} className="bg-white/80 dark:bg-black/50 text-black dark:text-white px-3 py-1 text-xs font-bold rounded-sm backdrop-blur border border-transparent hover:border-black dark:hover:border-white transition-all disabled:opacity-50">{t('cancel')}</button>
+                    <button onClick={handleSave} disabled={saving} className="bg-black dark:bg-white text-white dark:text-black px-3 py-1 text-xs font-bold rounded-sm hover:opacity-80 transition-all shadow-md disabled:opacity-50">
                         {saving ? t('saving') : t('save_changes')}
                     </button>
                 </div>
@@ -104,14 +127,16 @@ const ProfilePage: React.FC<ProfileProps> = ({ user }) => {
                 {/* Info */}
                 <div className="pt-4 flex-1">
                     {isEditing ? (
+                        <fieldset disabled={saving} className="group">
                         <div className="mb-2 max-w-sm">
                             <label className="text-xs text-zinc-400 uppercase font-bold tracking-wider mb-1 block">{t('nickname')}</label>
                             <input 
                                 value={nickname} 
                                 onChange={(e) => setNickname(e.target.value)} 
-                                className="text-2xl font-bold text-black dark:text-white bg-transparent border-b border-zinc-300 dark:border-zinc-700 w-full focus:border-black dark:focus:border-white outline-none py-1" 
+                                className="text-2xl font-bold text-black dark:text-white bg-transparent border-b border-zinc-300 dark:border-zinc-700 w-full focus:border-black dark:focus:border-white outline-none py-1 disabled:opacity-50" 
                             />
                         </div>
+                        </fieldset>
                     ) : (
                         <h1 className="text-3xl font-bold text-black dark:text-white tracking-tight">{user.nickname}</h1>
                     )}
@@ -126,20 +151,20 @@ const ProfilePage: React.FC<ProfileProps> = ({ user }) => {
                          {tags.map(tag => (
                             <span key={tag} className="inline-flex items-center px-3 py-1 rounded-sm text-xs font-bold bg-zinc-100 dark:bg-zinc-800 text-black dark:text-zinc-200 border border-zinc-200 dark:border-zinc-700">
                                 {tag}
-                                {isEditing && <button onClick={() => removeTag(tag)} className="ml-2 text-zinc-400 hover:text-red-500">×</button>}
+                                {isEditing && <button onClick={() => removeTag(tag)} disabled={saving} className="ml-2 text-zinc-400 hover:text-red-500 disabled:opacity-50">×</button>}
                             </span>
                         ))}
                         {isEditing && tags.length < 3 && (
-                            <div className="flex items-center gap-2">
+                            <fieldset disabled={saving} className="flex items-center gap-2 group">
                                 <input 
                                     value={tagInput} 
                                     onChange={e => setTagInput(e.target.value)} 
                                     onKeyDown={e => e.key === 'Enter' && handleAddTag()}
                                     placeholder={t('add_tag_placeholder')} 
-                                    className="bg-transparent border-b border-zinc-300 dark:border-zinc-700 text-sm px-2 py-1 text-black dark:text-white w-32 outline-none focus:border-black" 
+                                    className="bg-transparent border-b border-zinc-300 dark:border-zinc-700 text-sm px-2 py-1 text-black dark:text-white w-32 outline-none focus:border-black disabled:opacity-50" 
                                 />
-                                <button onClick={handleAddTag} className="text-xs bg-black dark:bg-white text-white dark:text-black px-2 py-1 rounded-sm">{t('add')}</button>
-                            </div>
+                                <button onClick={handleAddTag} className="text-xs bg-black dark:bg-white text-white dark:text-black px-2 py-1 rounded-sm disabled:opacity-50">{t('add')}</button>
+                            </fieldset>
                         )}
                     </div>
                 </div>
@@ -162,11 +187,10 @@ const ProfilePage: React.FC<ProfileProps> = ({ user }) => {
                      <h3 className="text-sm font-bold text-zinc-500 uppercase tracking-widest mb-4 border-b border-zinc-200 dark:border-zinc-800 pb-2">{t('credentials')}</h3>
                      {user.credentialUrl ? (
                          <div className="relative group overflow-hidden rounded-sm border border-zinc-300 dark:border-zinc-700 flex justify-center bg-zinc-100 dark:bg-zinc-900 p-2">
-                            {/* Updated to use ImagePreview and removed grayscale forced style */}
                             <ImagePreview 
                                 src={user.credentialUrl}
                                 alt="Credential"
-                                className="w-full max-w-[200px]" // Limited size as requested
+                                className="w-full max-w-[200px]" 
                                 thumbnailClassName="w-full h-auto object-contain transition-all duration-300"
                             />
                          </div>
@@ -189,6 +213,37 @@ const ProfilePage: React.FC<ProfileProps> = ({ user }) => {
                  </div>
             </div>
          </div>
+      </div>
+
+      {/* My Posts Section */}
+      <div className="border-t border-zinc-200 dark:border-zinc-800 pt-12">
+          <div className="flex items-center justify-between mb-8">
+              <h3 className="text-xl font-bold text-black dark:text-white tracking-tight">My Transmissions</h3>
+              <div className="text-xs text-zinc-500 uppercase tracking-widest">{myPosts.length} records</div>
+          </div>
+          
+          {loadingPosts ? (
+              <div className="flex justify-center py-12">
+                  <Spinner />
+              </div>
+          ) : myPosts.length === 0 ? (
+              <div className="text-center py-16 border border-dashed border-zinc-200 dark:border-zinc-800 rounded-sm">
+                  <p className="text-zinc-400 text-sm italic">You haven't broadcasted anything yet.</p>
+              </div>
+          ) : (
+              <div className="space-y-8">
+                  {myPosts.map(post => (
+                      <div key={post.id} className="relative">
+                           {/* Simplified Feed Item Wrapper for Profile */}
+                           <FeedItem 
+                                post={post} 
+                                currentUser={user} 
+                                onDelete={(id) => setMyPosts(prev => prev.filter(p => p.id !== id))} 
+                           />
+                      </div>
+                  ))}
+              </div>
+          )}
       </div>
     </div>
   );

@@ -1,5 +1,81 @@
-import { createClient, SupabaseClient, Session, EmailOtpType } from '@supabase/supabase-js';
-import { User, UserRole, UserStatus, Announcement, Post, ApiResponse, Comment } from '../types';
+
+
+
+
+
+import { createClient, SupabaseClient, Session, EmailOtpType, RealtimeChannel } from '@supabase/supabase-js';
+import { User, UserRole, UserStatus, Announcement, Post, ApiResponse, Comment, SiteConfig, Notification, NotificationType } from '../types';
+
+/*
+  --- SUPABASE DATABASE SCHEMA (RUN THIS IN SQL EDITOR) ---
+
+  -- 1. Profiles
+  create table profiles (
+    id uuid references auth.users on delete cascade primary key,
+    email text unique,
+    nickname text,
+    job_tags text[],
+    role text default 'USER', -- 'USER', 'ADMIN'
+    status text default 'PENDING', -- 'PENDING', 'ACTIVE', 'REJECTED', 'DELETED', 'EXPIRED'
+    credential_url text,
+    avatar_url text,
+    expiration_date timestamptz, -- New
+    is_renewal boolean default false, -- New
+    created_at timestamptz default now()
+  );
+
+  -- 2. Posts
+  create table posts (
+    id uuid default gen_random_uuid() primary key,
+    user_id uuid references profiles(id) on delete cascade,
+    content text,
+    image_urls text[],
+    image_url text, -- legacy support
+    location text,
+    created_at timestamptz default now()
+  );
+
+  -- 3. Comments
+  create table comments (
+    id uuid default gen_random_uuid() primary key,
+    post_id uuid references posts(id) on delete cascade,
+    user_id uuid references profiles(id) on delete cascade,
+    content text,
+    created_at timestamptz default now()
+  );
+
+  -- 4. Likes
+  create table likes (
+    id uuid default gen_random_uuid() primary key,
+    post_id uuid references posts(id) on delete cascade,
+    user_id uuid references profiles(id) on delete cascade,
+    created_at timestamptz default now(),
+    unique(post_id, user_id)
+  );
+
+  -- 5. Notifications (NEW)
+  create table notifications (
+    id uuid default gen_random_uuid() primary key,
+    user_id uuid references profiles(id) not null, -- Receiver
+    trigger_user_id uuid references profiles(id), -- Sender
+    type text not null, -- 'COMMENT', 'SYSTEM'
+    content text,
+    related_post_id uuid REFERENCES posts(id) ON DELETE CASCADE,
+    related_comment_id uuid REFERENCES comments(id) ON DELETE CASCADE,
+    is_read boolean default false,
+    created_at timestamptz default now()
+  );
+
+  -- 6. Site Config
+  create table site_config (
+    id bigint primary key,
+    landing_video_url text,
+    logo_url text -- New
+  );
+  
+  -- Insert default config row if not exists
+  insert into site_config (id, landing_video_url) values (1, '') on conflict do nothing;
+*/
 
 // --- Configuration Management ---
 const CONFIG_KEYS = {
@@ -11,6 +87,46 @@ const DEFAULT_URL = 'https://dyspuewvcrgzlvoebson.supabase.co';
 const DEFAULT_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImR5c3B1ZXd2Y3Jnemx2b2Vic29uIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjM4MTI1NDUsImV4cCI6MjA3OTM4ODU0NX0.mB5CppY2w8eGV1CtkcKtVi8tlIDIOoFaXbRRsxXZ4lA';
 
 let supabase: SupabaseClient | null = null;
+
+// --- Global Error Dispatcher ---
+export const SYSTEM_ERROR_EVENT = 'NOTHING_SYSTEM_ERROR';
+
+interface SystemErrorDetail {
+    title: string;
+    message: string;
+    code?: string;
+    hint?: string;
+}
+
+const dispatchFatalError = (error: any, context: string) => {
+    console.error(`[Fatal Error in ${context}]`, error);
+    
+    let detail: SystemErrorDetail = {
+        title: 'System Malfunction',
+        message: error.message || 'An unexpected error occurred.',
+        code: error.code
+    };
+
+    // Handle specific Postgres errors
+    if (error.code === '42703') {
+        detail.title = 'Database Schema Mismatch';
+        detail.message = `Column not found: ${error.message}`;
+        detail.hint = 'Please run the latest SQL script in Supabase SQL Editor to update your table structure.';
+    } else if (error.code === '42P01') {
+        detail.title = 'Missing Table Structure';
+        detail.message = `Table not found: ${error.message}`;
+        detail.hint = 'A required database table is missing. Please run the setup SQL script in Supabase.';
+    } else if (error.code === 'PGRST301') {
+        detail.title = 'Authentication Error';
+        detail.message = 'Your session token may be invalid or expired.';
+    } else if (error.code === '23505') {
+        // Unique violation is usually handled locally, but if fatal:
+        detail.title = 'Data Conflict';
+        detail.message = 'Duplicate data entry detected.';
+    }
+
+    window.dispatchEvent(new CustomEvent(SYSTEM_ERROR_EVENT, { detail }));
+};
 
 export const isBackendConfigured = () => {
   return (!!localStorage.getItem(CONFIG_KEYS.URL) && !!localStorage.getItem(CONFIG_KEYS.KEY)) || (!!DEFAULT_URL && !!DEFAULT_KEY);
@@ -129,7 +245,7 @@ export const sendOtp = async (email: string, isRegistration: boolean = false): P
   try {
     // Business Logic Checks
     if (isRegistration) {
-        const { data: existing } = await supabase!.from('profiles').select('status').eq('email', cleanEmail).single();
+        const { data: existing } = await supabase!.from('profiles').select('status').eq('email', cleanEmail).maybeSingle();
         if (existing) {
             // Logic Requirement: If user exists and is EXPIRED, tell them to Renew (via Login)
             if (existing.status === 'EXPIRED') {
@@ -142,7 +258,7 @@ export const sendOtp = async (email: string, isRegistration: boolean = false): P
             return { success: false, error: 'Email already registered. Please Log In.' };
         }
     } else {
-        const { data: existing } = await supabase!.from('profiles').select('status').eq('email', cleanEmail).single();
+        const { data: existing } = await supabase!.from('profiles').select('status').eq('email', cleanEmail).maybeSingle();
         if (!existing) {
             return { success: false, error: 'Member not found. Please register first.' };
         }
@@ -211,18 +327,21 @@ export const verifyOtp = async (email: string, token: string, type: EmailOtpType
     }
 };
 
-export const uploadImage = async (file: File, bucket: 'avatars' | 'posts'): Promise<string | null> => {
+export const uploadImage = async (file: File, bucket: 'avatars' | 'posts' | 'assets'): Promise<string | null> => {
     if (!supabase) return null;
     try {
-        // COMPRESS BEFORE UPLOAD
-        const compressedFile = await compressImage(file);
+        // COMPRESS BEFORE UPLOAD if it's not a logo/asset (logos we might want original quality/png transparency)
+        let fileToUpload = file;
+        if (bucket !== 'assets') {
+             fileToUpload = await compressImage(file);
+        }
 
-        const fileExt = compressedFile.name.split('.').pop();
+        const fileExt = fileToUpload.name.split('.').pop();
         const fileName = `${Date.now()}_${Math.random().toString(36).substring(7)}.${fileExt}`;
         
         const { error: uploadError } = await supabase.storage
             .from(bucket)
-            .upload(fileName, compressedFile);
+            .upload(fileName, fileToUpload);
 
         if (uploadError) {
             console.warn(`Upload to ${bucket} failed:`, uploadError);
@@ -333,7 +452,12 @@ export const getCurrentUser = async (): Promise<User | null> => {
     .eq('id', authUser.id)
     .single();
 
-  if (error || !profile) return null;
+  if (error) {
+      // Don't throw on not found, just return null (user needs to register)
+      return null;
+  }
+
+  if (!profile) return null;
 
   // STRICT SECURITY CHECK
   if (profile.status === 'DELETED') {
@@ -369,11 +493,16 @@ export const getCurrentUser = async (): Promise<User | null> => {
 
 export const getAnnouncements = async (): Promise<Announcement[]> => {
   if (!supabase) return [];
-  const { data } = await supabase
+  const { data, error } = await supabase
     .from('announcements')
     .select('*')
     .eq('is_active', true)
     .order('created_at', { ascending: false });
+
+  if (error) {
+      dispatchFatalError(error, 'getAnnouncements');
+      return [];
+  }
 
   return (data || []).map((a: any) => ({
     id: a.id,
@@ -387,7 +516,13 @@ export const getAnnouncements = async (): Promise<Announcement[]> => {
 
 export const getAllAnnouncements = async (): Promise<Announcement[]> => {
   if (!supabase) return [];
-  const { data } = await supabase.from('announcements').select('*').order('created_at', { ascending: false });
+  const { data, error } = await supabase.from('announcements').select('*').order('created_at', { ascending: false });
+  
+  if (error) {
+      dispatchFatalError(error, 'getAllAnnouncements');
+      return [];
+  }
+
   return (data || []).map((a: any) => ({
     id: a.id,
     title: a.title,
@@ -422,10 +557,104 @@ export const updateAnnouncement = async (id: string, updates: Partial<Announceme
     await supabase.from('announcements').update(payload).eq('id', id);
 };
 
+// --- Site Config Service ---
+
+export const getSiteConfig = async (): Promise<SiteConfig> => {
+    if (!supabase) return { landingVideoUrl: '', logoUrl: '' };
+    
+    try {
+        const { data, error } = await supabase
+            .from('site_config')
+            .select('landing_video_url, logo_url')
+            .eq('id', 1)
+            .maybeSingle();
+
+        if (error) {
+            // CRITICAL: If this schema error happens, app is broken. Dispatch it.
+            if (error.code === '42703') { // Undefined column
+                dispatchFatalError(error, 'getSiteConfig');
+            }
+            console.warn("Error fetching site config:", error.message);
+            return { landingVideoUrl: '', logoUrl: '' };
+        }
+
+        return { 
+            landingVideoUrl: data?.landing_video_url || '',
+            logoUrl: data?.logo_url || ''
+        };
+    } catch (e) {
+        console.error("Site Config fetch exception:", e);
+        return { landingVideoUrl: '', logoUrl: '' };
+    }
+};
+
+export const updateSiteConfig = async (config: Partial<SiteConfig>) => {
+    if (!supabase) return;
+    
+    const payload: any = {};
+    if (config.landingVideoUrl !== undefined) payload.landing_video_url = config.landingVideoUrl;
+    if (config.logoUrl !== undefined) payload.logo_url = config.logoUrl;
+
+    const { error } = await supabase
+        .from('site_config')
+        .upsert({ id: 1, ...payload });
+    
+    if (error) throw error;
+};
+
 export interface FeedResponse {
-    data: (Post & { user: User | undefined })[];
+    data: (Post & { user?: User })[];
     count: number;
 }
+
+// Helper to transform raw post from DB
+const transformPost = (p: any, likes: number = 0, commentsCount: number = 0, isLikedByCurrentUser: boolean = false): Post & { user?: User } => {
+    let imageUrls: string[] = [];
+    if (p.image_urls && Array.isArray(p.image_urls)) {
+        imageUrls = p.image_urls;
+    } else if (p.image_url) {
+        imageUrls = [p.image_url];
+    }
+
+    return {
+        id: p.id,
+        userId: p.user_id,
+        content: p.content,
+        imageUrls: imageUrls,
+        location: p.location,
+        createdAt: new Date(p.created_at).getTime(),
+        likes,
+        commentsCount,
+        isLikedByCurrentUser,
+        user: p.user ? {
+            ...p.user,
+            avatarUrl: p.user.avatar_url,
+            jobTags: p.user.job_tags
+        } : undefined
+    };
+}
+
+export const getPostById = async (postId: string): Promise<(Post & { user?: User }) | null> => {
+    if (!supabase) return null;
+    const { data: { user: currentUser } } = await supabase.auth.getUser();
+
+    const { data: p, error } = await supabase
+        .from('posts')
+        .select(`*, user:profiles(id, nickname, job_tags, avatar_url)`)
+        .eq('id', postId)
+        .single();
+
+    if (error || !p) return null;
+
+    // Get interactions
+    const [likesRes, commentsRes, myLikeRes] = await Promise.all([
+        supabase!.from('likes').select('id', { count: 'exact', head: true }).eq('post_id', p.id),
+        supabase!.from('comments').select('id', { count: 'exact', head: true }).eq('post_id', p.id),
+        currentUser ? supabase!.from('likes').select('id').eq('post_id', p.id).eq('user_id', currentUser.id).maybeSingle() : Promise.resolve({ data: null })
+    ]);
+
+    return transformPost(p, likesRes.count || 0, commentsRes.count || 0, !!myLikeRes.data);
+};
 
 export const getFeed = async (page: number = 1, limit: number = 10): Promise<FeedResponse> => {
   if (!supabase) return { data: [], count: 0 };
@@ -460,52 +689,21 @@ export const getFeed = async (page: number = 1, limit: number = 10): Promise<Fee
         .range(from, to);
 
     if (error) {
+        // If column missing or other critical DB error
+        if (error.code === '42703') {
+            dispatchFatalError(error, 'getFeed');
+        }
         console.warn("Feed error:", error);
         return { data: [], count: 0 };
     }
 
     const postsWithInteractions = await Promise.all((data || []).map(async (p: any) => {
-        let likes = 0;
-        let commentsCount = 0;
-        let isLikedByCurrentUser = false;
-
-        try {
-            const [likesRes, commentsRes, myLikeRes] = await Promise.all([
-                supabase!.from('likes').select('id', { count: 'exact', head: true }).eq('post_id', p.id),
-                supabase!.from('comments').select('id', { count: 'exact', head: true }).eq('post_id', p.id),
-                currentUser ? supabase!.from('likes').select('id').eq('post_id', p.id).eq('user_id', currentUser.id).single() : Promise.resolve({ data: null })
-            ]);
-
-            likes = likesRes.count || 0;
-            commentsCount = commentsRes.count || 0;
-            isLikedByCurrentUser = !!myLikeRes.data;
-        } catch (e) {
-            // Ignore missing table errors
-        }
-
-        let imageUrls: string[] = [];
-        if (p.image_urls && Array.isArray(p.image_urls)) {
-            imageUrls = p.image_urls;
-        } else if (p.image_url) {
-            imageUrls = [p.image_url];
-        }
-
-        return {
-            id: p.id,
-            userId: p.user_id,
-            content: p.content,
-            imageUrls: imageUrls, 
-            location: p.location,
-            createdAt: new Date(p.created_at).getTime(),
-            likes,
-            commentsCount,
-            isLikedByCurrentUser,
-            user: p.user ? {
-                ...p.user,
-                avatarUrl: p.user.avatar_url,
-                jobTags: p.user.job_tags
-            } : undefined
-        };
+        const [likesRes, commentsRes, myLikeRes] = await Promise.all([
+            supabase!.from('likes').select('id', { count: 'exact', head: true }).eq('post_id', p.id),
+            supabase!.from('comments').select('id', { count: 'exact', head: true }).eq('post_id', p.id),
+            currentUser ? supabase!.from('likes').select('id').eq('post_id', p.id).eq('user_id', currentUser.id).maybeSingle() : Promise.resolve({ data: null })
+        ]);
+        return transformPost(p, likesRes.count || 0, commentsRes.count || 0, !!myLikeRes.data);
     }));
 
     return { 
@@ -513,14 +711,42 @@ export const getFeed = async (page: number = 1, limit: number = 10): Promise<Fee
         count: count || 0 
     };
 
-  } catch (e) {
+  } catch (e: any) {
+      // Dispatch if it's a Supabase error structure
+      if (e?.code) dispatchFatalError(e, 'getFeedException');
       console.error("Exception fetching feed:", e);
       return { data: [], count: 0 };
   }
 };
 
-export const createPost = async (content: string, files: File[] = [], location?: string) => {
-  if (!supabase) return;
+export const getUserPosts = async (userId: string): Promise<(Post & { user?: User })[]> => {
+    if (!supabase) return [];
+    
+    const { data, error } = await supabase
+        .from('posts')
+        .select(`*, user:profiles(id, nickname, job_tags, avatar_url)`)
+        .eq('user_id', userId)
+        .order('created_at', { ascending: false });
+
+    if (error) return [];
+
+    const { data: { user: currentUser } } = await supabase.auth.getUser();
+
+    const posts = await Promise.all((data || []).map(async (p: any) => {
+        const [likesRes, commentsRes, myLikeRes] = await Promise.all([
+            supabase!.from('likes').select('id', { count: 'exact', head: true }).eq('post_id', p.id),
+            supabase!.from('comments').select('id', { count: 'exact', head: true }).eq('post_id', p.id),
+            currentUser ? supabase!.from('likes').select('id').eq('post_id', p.id).eq('user_id', currentUser.id).maybeSingle() : Promise.resolve({ data: null })
+        ]);
+        return transformPost(p, likesRes.count || 0, commentsRes.count || 0, !!myLikeRes.data);
+    }));
+    
+    return posts;
+};
+
+
+export const createPost = async (content: string, files: File[] = [], location?: string): Promise<string> => {
+  if (!supabase) throw new Error("Not connected");
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) throw new Error("Not logged in");
 
@@ -534,15 +760,16 @@ export const createPost = async (content: string, files: File[] = [], location?:
       }
   }
 
-  const { error } = await supabase.from('posts').insert({
+  const { data, error } = await supabase.from('posts').insert({
     user_id: user.id,
     content,
     image_urls: imageUrls,
     image_url: imageUrls.length > 0 ? imageUrls[0] : null,
     location: location
-  });
+  }).select('id').single();
   
   if (error) throw error;
+  return data.id;
 };
 
 export const deletePost = async (postId: string) => {
@@ -558,7 +785,8 @@ export const toggleLike = async (postId: string) => {
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) return;
 
-    const { data: existing } = await supabase.from('likes').select('id').eq('post_id', postId).eq('user_id', user.id).single();
+    // Use maybeSingle to avoid error if no like exists
+    const { data: existing } = await supabase.from('likes').select('id').eq('post_id', postId).eq('user_id', user.id).maybeSingle();
     
     if (existing) {
         await supabase.from('likes').delete().eq('id', existing.id);
@@ -597,19 +825,126 @@ export const addComment = async (postId: string, content: string) => {
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) return;
 
-    const { error } = await supabase.from('comments').insert({
+    const { data: commentData, error } = await supabase.from('comments').insert({
         post_id: postId,
         user_id: user.id,
         content
-    });
+    }).select('id').single();
+    
     if (error) throw error;
+
+    // --- Trigger Notification Logic ---
+    // 1. Get post owner
+    const { data: post } = await supabase.from('posts').select('user_id').eq('id', postId).single();
+    
+    // 2. If post owner exists and is NOT the commenter
+    if (post && post.user_id !== user.id) {
+        // Wrap in try-catch to avoid breaking comment flow if notifications table is missing
+        try {
+            await supabase.from('notifications').insert({
+                user_id: post.user_id, // Receiver (Post Owner)
+                trigger_user_id: user.id, // Sender (Commenter)
+                type: 'COMMENT',
+                content: content, // Store snippet of comment
+                related_post_id: postId,
+                related_comment_id: commentData.id,
+                is_read: false
+            });
+        } catch (notifErr) {
+            console.warn("Failed to create notification", notifErr);
+        }
+    }
+};
+
+// --- Notifications ---
+
+export const getNotifications = async (): Promise<Notification[]> => {
+    if (!supabase) return [];
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) return [];
+
+    const { data, error } = await supabase
+        .from('notifications')
+        .select('*, triggerUser:profiles!trigger_user_id(nickname, avatar_url)')
+        .eq('user_id', user.id)
+        .order('created_at', { ascending: false }) // Newest first
+        .limit(30);
+    
+    if (error) {
+        // Only warn here, notifications aren't "fatal" usually, unless table is missing
+        if (error.code === '42P01') { // Undefined table 'notifications'
+            dispatchFatalError(error, 'getNotifications');
+        }
+        console.warn("Fetch notifications error", error);
+        return [];
+    }
+
+    return (data || []).map((n: any) => ({
+        id: n.id,
+        userId: n.user_id,
+        triggerUserId: n.trigger_user_id,
+        triggerUser: n.triggerUser ? {
+            nickname: n.triggerUser.nickname,
+            avatarUrl: n.triggerUser.avatar_url
+        } : undefined,
+        type: n.type as NotificationType,
+        content: n.content,
+        relatedPostId: n.related_post_id,
+        relatedCommentId: n.related_comment_id,
+        isRead: n.is_read,
+        createdAt: new Date(n.created_at).getTime()
+    }));
+};
+
+export const markNotificationRead = async (id: string) => {
+    if (!supabase) return;
+    await supabase.from('notifications').update({ is_read: true }).eq('id', id);
+};
+
+// --- Realtime Subscriptions ---
+
+export const subscribeToNotifications = (userId: string, onData: (data: any) => void): RealtimeChannel | null => {
+    if (!supabase) return null;
+    return supabase
+        .channel(`notif:${userId}`)
+        .on('postgres_changes', { 
+            event: 'INSERT', 
+            schema: 'public', 
+            table: 'notifications', 
+            filter: `user_id=eq.${userId}` 
+        }, payload => {
+            onData(payload.new);
+        })
+        .subscribe();
+};
+
+export const subscribeToAdminChanges = (onData: (data: any) => void): RealtimeChannel | null => {
+     if (!supabase) return null;
+     return supabase
+        .channel('admin-profiles')
+        .on('postgres_changes', {
+            event: 'INSERT', // Catch new users
+            schema: 'public',
+            table: 'profiles'
+        }, payload => onData(payload.new))
+        .on('postgres_changes', {
+            event: 'UPDATE', // Catch status changes (e.g. renewal)
+            schema: 'public',
+            table: 'profiles'
+        }, payload => onData(payload.new))
+        .subscribe();
 };
 
 // --- Admin Service ---
 
 export const getAdminUsers = async (): Promise<User[]> => {
   if (!supabase) return [];
-  const { data } = await supabase.from('profiles').select('*').order('created_at', { ascending: false });
+  const { data, error } = await supabase.from('profiles').select('*').order('created_at', { ascending: false });
+  
+  if (error) {
+      dispatchFatalError(error, 'getAdminUsers');
+      return [];
+  }
   
   return (data || []).map((profile: any) => ({
     id: profile.id,

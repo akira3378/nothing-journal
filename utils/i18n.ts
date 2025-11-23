@@ -1,4 +1,6 @@
 import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
+import { SiteConfig } from '../types';
+import { getSiteConfig } from '../services/mockBackend';
 
 type Language = 'zh' | 'en';
 type Theme = 'light' | 'dark';
@@ -12,11 +14,11 @@ const translations = {
     profile: '个人中心',
     admin: '管理后台',
     logout: '登出',
-    landing_hero_1: '无物',
-    landing_hero_2: '万物皆虚，随心而活。',
-    landing_hero_sub: '企业技术与生活方式',
-    landing_btn: '成为会员',
-    transmissions: '传输讯号',
+    // Landing Page (Unified English as per design request)
+    landing_hero_1: 'NOTHING',
+    landing_hero_2: 'Live the way you like.',
+    landing_btn: '申请入驻',
+    transmissions: '信号传输',
     footer_rights: 'NOTHING CORP. 版权所有.',
     
     // Login
@@ -56,8 +58,8 @@ const translations = {
     return_home: '返回首页',
 
     // Feed
-    whats_on_mind: '想说什么？',
-    share_placeholder: '分享您的想法...',
+    whats_on_mind: '分享你的旅程...',
+    share_placeholder: '写点什么...',
     image: '图片',
     location: '位置',
     posting: '发布中...',
@@ -74,6 +76,8 @@ const translations = {
     send: '发送',
     no_comments: '暂无评论',
     loading_comments: '加载评论中...',
+    load_more: '加载更多',
+    end_of_feed: '已到达底部',
 
     // Profile
     edit_profile: '编辑资料',
@@ -87,10 +91,12 @@ const translations = {
     pending_banner: '账户审核中',
     pending_banner_desc: '您的账户正在等待管理员审核。部分功能受限。',
 
-    // Admin
+    // Admin & Global Config
     administration: '系统管理',
-    members: '成员',
-    announcements: '公告',
+    members: '成员管理',
+    content_config: '内容与配置',
+    announcements: '公告管理',
+    site_config: '站点配置',
     new_announcement: '发布新公告',
     edit_announcement: '编辑公告',
     title: '标题',
@@ -107,11 +113,21 @@ const translations = {
     update: '更新',
     cancel_edit: '取消编辑',
     
+    // Admin Modal
+    edit_user: '编辑用户',
+    expiration_date: '过期日期',
+    video_url: '首页视频链接 (YouTube)',
+    video_hint: '输入 YouTube 视频地址 (例如 https://www.youtube.com/watch?v=...)',
+    logo_upload: '站点 LOGO 设置',
+    logo_desc: '上传透明背景 PNG (建议 128x128)。这也将更新浏览器图标。',
+    remove_logo: '恢复默认 LOGO',
+
     // Status / Roles
     PENDING: '审核中',
     ACTIVE: '活跃',
     REJECTED: '已拒绝',
     DELETED: '已删除',
+    EXPIRED: '已过期',
     USER: '用户',
     ADMIN: '管理员',
   },
@@ -123,9 +139,9 @@ const translations = {
     profile: 'Profile',
     admin: 'Admin',
     logout: 'Logout',
+    // Landing Page
     landing_hero_1: 'NOTHING',
-    landing_hero_2: 'Everything is unimportant. Live the way you like.',
-    landing_hero_sub: 'Enterprise Technology & Lifestyle',
+    landing_hero_2: 'Live the way you like.',
     landing_btn: 'Become a Member',
     transmissions: 'Transmissions',
     footer_rights: 'NOTHING CORP. All rights reserved.',
@@ -167,8 +183,8 @@ const translations = {
     return_home: 'Return Home',
 
     // Feed
-    whats_on_mind: 'What\'s on your mind?',
-    share_placeholder: 'Share something...',
+    whats_on_mind: 'Share your journey...',
+    share_placeholder: 'Write something...',
     image: 'Image',
     location: 'Location',
     posting: 'POSTING...',
@@ -185,6 +201,8 @@ const translations = {
     send: 'Send',
     no_comments: 'No comments yet',
     loading_comments: 'Loading comments...',
+    load_more: 'Load More',
+    end_of_feed: 'End of feed',
 
     // Profile
     edit_profile: 'Edit Profile',
@@ -198,10 +216,12 @@ const translations = {
     pending_banner: 'Under Review',
     pending_banner_desc: 'Your account is pending administrator approval. Features are limited.',
 
-    // Admin
+    // Admin & Global Config
     administration: 'ADMINISTRATION',
-    members: 'MEMBERS',
-    announcements: 'ANNOUNCEMENTS',
+    members: 'Members',
+    content_config: 'Content & Config',
+    announcements: 'Announcements',
+    site_config: 'Site Config',
     new_announcement: 'New Announcement',
     edit_announcement: 'Edit Announcement',
     title: 'Title',
@@ -218,11 +238,21 @@ const translations = {
     update: 'Update',
     cancel_edit: 'Cancel Edit',
 
+    // Admin Modal
+    edit_user: 'Edit User',
+    expiration_date: 'Expiration Date',
+    video_url: 'Homepage Video URL (YouTube)',
+    video_hint: 'Enter YouTube URL (e.g. https://www.youtube.com/watch?v=...)',
+    logo_upload: 'Site Logo Settings',
+    logo_desc: 'Upload a transparent PNG (rec. 128x128). This will also update the browser favicon.',
+    remove_logo: 'Restore Default Logo',
+
     // Status / Roles
     PENDING: 'PENDING',
     ACTIVE: 'ACTIVE',
     REJECTED: 'REJECTED',
     DELETED: 'DELETED',
+    EXPIRED: 'EXPIRED',
     USER: 'USER',
     ADMIN: 'ADMIN',
   }
@@ -234,6 +264,8 @@ interface AppContextType {
   theme: Theme;
   toggleTheme: () => void;
   t: (key: string) => string;
+  siteConfig: SiteConfig; // Added config to context
+  refreshConfig: () => void;
 }
 
 export const AppContext = createContext<AppContextType>({
@@ -242,13 +274,24 @@ export const AppContext = createContext<AppContextType>({
   theme: 'light',
   toggleTheme: () => {},
   t: (key) => key,
+  siteConfig: { landingVideoUrl: '', logoUrl: '' },
+  refreshConfig: () => {}
 });
 
 export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
   const [language, setLanguage] = useState<Language>('en');
   const [theme, setTheme] = useState<Theme>('light');
+  const [siteConfig, setSiteConfig] = useState<SiteConfig>({ landingVideoUrl: '', logoUrl: '' });
+
+  // Initial config fetch
+  const refreshConfig = async () => {
+      const config = await getSiteConfig();
+      setSiteConfig(config);
+  };
 
   useEffect(() => {
+    refreshConfig();
+    
     // Initialize from local storage or system preference
     const savedLang = localStorage.getItem('app_lang') as Language;
     if (savedLang) setLanguage(savedLang);
@@ -287,7 +330,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
 
   return React.createElement(
     AppContext.Provider,
-    { value: { language, setLanguage, theme, toggleTheme, t } },
+    { value: { language, setLanguage, theme, toggleTheme, t, siteConfig, refreshConfig } },
     children
   );
 };

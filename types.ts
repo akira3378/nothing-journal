@@ -1,3 +1,4 @@
+
 export enum UserRole {
   USER = 'USER',
   ADMIN = 'ADMIN',
@@ -35,6 +36,11 @@ export interface Announcement {
   isActive: boolean;
 }
 
+export interface SiteConfig {
+  landingVideoUrl: string;
+  logoUrl?: string; // Added dynamic logo support
+}
+
 export interface Comment {
   id: string;
   postId: string;
@@ -54,6 +60,24 @@ export interface Post {
   likes: number;
   isLikedByCurrentUser?: boolean;
   commentsCount?: number;
+}
+
+export enum NotificationType {
+    COMMENT = 'COMMENT',
+    SYSTEM = 'SYSTEM'
+}
+
+export interface Notification {
+    id: string;
+    userId: string; // Receiver
+    triggerUserId?: string; // Sender (e.g. commenter)
+    triggerUser?: Partial<User>; // Updated to allow Partial User
+    type: NotificationType;
+    content: string;
+    relatedPostId?: string;
+    relatedCommentId?: string;
+    isRead: boolean;
+    createdAt: number;
 }
 
 export interface AuthState {

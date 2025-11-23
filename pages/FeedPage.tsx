@@ -1,10 +1,12 @@
+
+
 import React, { useEffect, useRef, useState } from 'react';
 import { User, Post, Comment } from '../types';
 import { getFeed, createPost, deletePost, toggleLike, getComments, addComment } from '../services/mockBackend';
 import { useApp } from '../utils/i18n';
 import { ImagePreview } from '../components/ImagePreview';
 import { formatLocalTime } from '../utils/formatters';
-import { Button, Spinner, useToast } from '../components/UI';
+import { Button, Spinner, useToast, Icons } from '../components/UI';
 
 interface FeedProps {
   user: User;
@@ -16,32 +18,33 @@ const ImageGrid: React.FC<{ imageUrls: string[] }> = ({ imageUrls }) => {
     const count = imageUrls.length;
     let gridClass = '';
     
-    // Updated Grid Logic: Restrict height to prevent massive images
-    // Using object-cover to maintain aspect ratio within the box
-    
     if (count === 1) {
         return (
             <div className="mb-4">
                  <ImagePreview 
                     src={imageUrls[0]}
                     alt="Post attachment"
-                    className="rounded-sm w-full h-40 overflow-hidden bg-zinc-100 dark:bg-zinc-900" // Fixed height container
-                    thumbnailClassName="w-full h-full object-cover" // Zoom in to fill
+                    className="rounded-sm w-full h-64 overflow-hidden bg-zinc-100 dark:bg-zinc-900" 
+                    thumbnailClassName="w-full h-full object-cover" 
                />
             </div>
         );
     }
     
-    if (count === 2 || count === 4) {
+    if (count === 2) {
         gridClass = 'grid-cols-2';
-    } else {
+    } else if (count === 3) {
         gridClass = 'grid-cols-3';
+    } else if (count === 4) {
+        gridClass = 'grid-cols-2 md:grid-cols-4'; 
+    } else {
+        gridClass = 'grid-cols-3 md:grid-cols-4';
     }
 
     return (
         <div className={`grid ${gridClass} gap-1 mb-4 rounded-sm overflow-hidden`}>
             {imageUrls.map((url, index) => (
-                <div key={index} className="aspect-square relative overflow-hidden bg-zinc-100 dark:bg-zinc-800 h-32">
+                <div key={index} className="aspect-square relative overflow-hidden bg-zinc-100 dark:bg-zinc-800">
                      <ImagePreview 
                         src={url}
                         alt={`Attachment ${index + 1}`}
@@ -54,11 +57,13 @@ const ImageGrid: React.FC<{ imageUrls: string[] }> = ({ imageUrls }) => {
     );
 };
 
-const FeedItem: React.FC<{ post: Post & { user?: User }; currentUser: User; onDelete: (id: string) => void }> = ({ post, currentUser, onDelete }) => {
+export const FeedItem: React.FC<{ post: Post & { user?: User }; currentUser: User; onDelete: (id: string) => void }> = ({ post, currentUser, onDelete }) => {
     const { t } = useApp();
     const { addToast } = useToast();
     const [likes, setLikes] = useState(post.likes);
     const [isLiked, setIsLiked] = useState(post.isLikedByCurrentUser);
+    // Initialize state with prop, but we need to be careful if parent re-renders with same data
+    const [commentsCount, setCommentsCount] = useState(post.commentsCount || 0);
     const [showComments, setShowComments] = useState(false);
     const [comments, setComments] = useState<Comment[]>([]);
     const [commentsLoading, setCommentsLoading] = useState(false);
@@ -105,8 +110,11 @@ const FeedItem: React.FC<{ post: Post & { user?: User }; currentUser: User; onDe
         try {
             await addComment(post.id, commentInput);
             setCommentInput('');
+            // Refresh comments list
             const data = await getComments(post.id);
             setComments(data);
+            // Optimistic Count Update
+            setCommentsCount(prev => prev + 1);
         } catch (e) {
             addToast('Failed to comment', 'error');
         } finally {
@@ -130,7 +138,7 @@ const FeedItem: React.FC<{ post: Post & { user?: User }; currentUser: User; onDe
     const displayImages = post.imageUrls || [];
 
     return (
-        <div className="bg-white dark:bg-zinc-900/40 border border-zinc-200 dark:border-zinc-800/50 rounded-sm p-6 transition-all shadow-sm dark:shadow-none mb-6">
+        <div className="bg-white dark:bg-zinc-900/40 border border-zinc-200 dark:border-zinc-800/50 rounded-sm p-6 transition-all shadow-sm dark:shadow-none mb-6 animate-fadeIn">
               <div className="flex items-start justify-between mb-4">
                 <div className="flex items-start">
                     <div className="h-10 w-10 rounded-full bg-gray-100 dark:bg-zinc-800 flex items-center justify-center text-black dark:text-white font-bold mr-4 border border-zinc-200 dark:border-zinc-700 shrink-0 overflow-hidden">
@@ -157,7 +165,9 @@ const FeedItem: React.FC<{ post: Post & { user?: User }; currentUser: User; onDe
                     <div className="flex items-center gap-2">
                         <span className="text-xs text-zinc-500">{formatLocalTime(post.createdAt)}</span>
                         {post.location && (
-                            <span className="text-[10px] text-blue-600 dark:text-blue-500 flex items-center gap-0.5 max-w-[150px] truncate" title={post.location}>📍 {post.location}</span>
+                            <span className="text-[10px] text-blue-600 dark:text-blue-500 flex items-center gap-0.5 max-w-[150px] truncate" title={post.location}>
+                                <Icons.MapPin className="w-3 h-3" /> {post.location}
+                            </span>
                         )}
                     </div>
                     </div>
@@ -165,7 +175,7 @@ const FeedItem: React.FC<{ post: Post & { user?: User }; currentUser: User; onDe
                 
                 {canDelete && (
                      <Button variant="ghost" size="sm" onClick={handleDelete} className="text-zinc-400 hover:text-red-500 p-0 h-auto">
-                        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"></path></svg>
+                        <Icons.Trash className="w-4 h-4" />
                      </Button>
                 )}
               </div>
@@ -181,9 +191,7 @@ const FeedItem: React.FC<{ post: Post & { user?: User }; currentUser: User; onDe
                     onClick={handleLike} 
                     className={`mr-6 flex items-center gap-2 px-2 py-1 rounded transition-all active:scale-95 ${isLiked ? 'text-red-500 bg-red-50 dark:bg-red-900/10' : 'hover:bg-gray-50 dark:hover:bg-zinc-800'}`}
                 >
-                   <svg className={`w-5 h-5 transition-transform ${isLiked ? 'scale-110 fill-current' : 'scale-100'}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z"></path>
-                   </svg>
+                   <Icons.Heart className={`w-5 h-5 transition-transform ${isLiked ? 'scale-110' : 'scale-100'}`} fill={isLiked} />
                    <span>{likes > 0 ? likes : ''}</span>
                 </button>
                 
@@ -191,8 +199,8 @@ const FeedItem: React.FC<{ post: Post & { user?: User }; currentUser: User; onDe
                     onClick={toggleComments} 
                     className="flex items-center gap-2 px-2 py-1 rounded hover:bg-gray-50 dark:hover:bg-zinc-800 transition-all active:scale-95"
                 >
-                    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z"></path></svg>
-                    <span>{post.commentsCount ? post.commentsCount : ''}</span>
+                    <Icons.MessageSquare className="w-5 h-5" />
+                    <span>{commentsCount > 0 ? commentsCount : ''}</span>
                 </button>
               </div>
 
@@ -224,17 +232,23 @@ const FeedItem: React.FC<{ post: Post & { user?: User }; currentUser: User; onDe
                           </div>
                       )}
                       
-                      <form onSubmit={handleSendComment} className="flex gap-2 relative">
-                          <input 
-                            value={commentInput}
-                            onChange={e => setCommentInput(e.target.value)}
-                            placeholder={t('write_comment')}
-                            className="flex-1 bg-white dark:bg-black border border-zinc-200 dark:border-zinc-700 rounded-sm px-4 py-2 text-sm outline-none focus:border-zinc-400 pr-10 transition-colors"
-                          />
-                          <button type="submit" disabled={sendingComment} className="absolute right-1 top-1 bottom-1 px-3 bg-black dark:bg-white text-white dark:text-black rounded-sm text-xs font-bold hover:opacity-80 disabled:opacity-50 transition-opacity">
-                              {sendingComment ? '...' : '→'}
-                          </button>
-                      </form>
+                      <fieldset disabled={sendingComment} className="group">
+                        <form onSubmit={handleSendComment} className="flex items-center bg-white dark:bg-black border border-zinc-200 dark:border-zinc-700 rounded-sm p-1 focus-within:border-black dark:focus-within:border-white transition-colors">
+                            <input 
+                                value={commentInput}
+                                onChange={e => setCommentInput(e.target.value)}
+                                placeholder={t('write_comment')}
+                                className="flex-1 bg-transparent px-3 py-1.5 text-sm outline-none text-black dark:text-white placeholder-zinc-400"
+                            />
+                            <button 
+                                type="submit" 
+                                disabled={sendingComment || !commentInput.trim()} 
+                                className="px-3 py-1.5 bg-black dark:bg-white text-white dark:text-black rounded-sm text-xs font-bold hover:opacity-80 disabled:opacity-50 disabled:cursor-not-allowed transition-opacity h-full"
+                            >
+                                {sendingComment ? <Spinner size="sm" className="border-white dark:border-black" /> : '→'}
+                            </button>
+                        </form>
+                      </fieldset>
                   </div>
               </div>
             </div>
@@ -249,10 +263,10 @@ const FeedPage: React.FC<FeedProps> = ({ user }) => {
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
   
+  // Infinite Scroll State
   const [page, setPage] = useState(1);
-  const [totalPages, setTotalPages] = useState(1);
-  const [totalCount, setTotalCount] = useState(0);
-  const ITEMS_PER_PAGE = 10;
+  const [hasMore, setHasMore] = useState(true);
+  const observerTarget = useRef(null);
   
   const [selectedFiles, setSelectedFiles] = useState<File[]>([]);
   const [previewUrls, setPreviewUrls] = useState<string[]>([]);
@@ -260,23 +274,59 @@ const FeedPage: React.FC<FeedProps> = ({ user }) => {
   const [locationLoading, setLocationLoading] = useState(false);
   
   const fileInputRef = useRef<HTMLInputElement>(null);
+  
+  // New post ID for animation
+  const [newPostId, setNewPostId] = useState<string | null>(null);
 
-  const fetchPosts = async (currentPage: number) => {
-    setLoading(true);
-    const { data, count } = await getFeed(currentPage, ITEMS_PER_PAGE);
-    setPosts(Array.isArray(data) ? data : []);
-    setTotalCount(count);
-    setTotalPages(Math.ceil(count / ITEMS_PER_PAGE));
+  const fetchPosts = async (currentPage: number, reset: boolean = false) => {
+    if (!reset && loading) return; // Prevent duplicate fetches
+    
+    // Only show big loader on initial load
+    if (currentPage === 1) setLoading(true);
+
+    const { data } = await getFeed(currentPage, 10);
+    
+    if (reset) {
+        setPosts(data);
+    } else {
+        setPosts(prev => [...prev, ...data]);
+    }
+    
+    setHasMore(data.length > 0);
     setLoading(false);
   };
 
+  // Initial Load
   useEffect(() => {
-    fetchPosts(page);
-    window.scrollTo({ top: 0, behavior: 'smooth' });
+    fetchPosts(1, true);
     return () => {
         previewUrls.forEach(url => URL.revokeObjectURL(url));
     };
-  }, [page]);
+  }, []);
+
+  // Infinite Scroll Observer
+  useEffect(() => {
+      const observer = new IntersectionObserver(
+          entries => {
+              if (entries[0].isIntersecting && hasMore && !loading) {
+                  setPage(prev => {
+                      const nextPage = prev + 1;
+                      fetchPosts(nextPage);
+                      return nextPage;
+                  });
+              }
+          },
+          { threshold: 1.0 }
+      );
+
+      if (observerTarget.current) {
+          observer.observe(observerTarget.current);
+      }
+
+      return () => {
+          if (observerTarget.current) observer.unobserve(observerTarget.current);
+      };
+  }, [hasMore, loading]);
 
   const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
       if (e.target.files && e.target.files.length > 0) {
@@ -299,7 +349,6 @@ const FeedPage: React.FC<FeedProps> = ({ user }) => {
       setPreviewUrls(newUrls);
   };
 
-  // REVERSE GEOCODING LOGIC
   const handleGetLocation = () => {
       setLocationLoading(true);
       if (navigator.geolocation) {
@@ -308,8 +357,6 @@ const FeedPage: React.FC<FeedProps> = ({ user }) => {
               const lon = pos.coords.longitude;
               
               try {
-                  // Use OpenStreetMap Nominatim API for reverse geocoding
-                  // Note: In production, use your own caching/proxy or a paid service to avoid rate limits
                   const response = await fetch(`https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lon}`);
                   const data = await response.json();
                   
@@ -326,7 +373,6 @@ const FeedPage: React.FC<FeedProps> = ({ user }) => {
                       setLocation(`${lat.toFixed(4)}, ${lon.toFixed(4)}`);
                   }
               } catch (e) {
-                  // Fallback to coordinates on network error
                   setLocation(`${lat.toFixed(4)}, ${lon.toFixed(4)}`);
               } finally {
                   setLocationLoading(false);
@@ -347,18 +393,42 @@ const FeedPage: React.FC<FeedProps> = ({ user }) => {
     
     setSubmitting(true);
     try {
-      await createPost(newContent, selectedFiles, location || undefined);
+      const newId = await createPost(newContent, selectedFiles, location || undefined);
+      
+      // Optimistic UI Update: Create a fake Post object to display immediately
+      // Note: In a real app with Supabase, we can select back the created row.
+      // The mockBackend creates the ID but we construct the display object here.
+      const optimisticPost: Post & { user?: User } = {
+          id: newId,
+          userId: user.id,
+          content: newContent,
+          imageUrls: previewUrls, // Use preview URLs temporarily (real URLs are handled in createPost)
+          location: location || undefined,
+          createdAt: Date.now(),
+          likes: 0,
+          commentsCount: 0,
+          isLikedByCurrentUser: false,
+          user: user // Attach current user info for avatar display
+      };
+
+      // Set ID for animation targeting
+      setNewPostId(newId);
+
+      // Prepend new post with animation
+      setPosts(prev => [optimisticPost, ...prev]);
+
       setNewContent('');
       setSelectedFiles([]);
-      setPreviewUrls([]);
+      // Don't revoke object URLs immediately if we are reusing them for display, 
+      // but strictly we should handle this better. For mock demo, it's fine.
+      setPreviewUrls([]); 
       setLocation(null);
       
-      if (page === 1) {
-          await fetchPosts(1);
-      } else {
-          setPage(1);
-      }
       addToast("Content published", "success");
+      
+      // Clear animation ref after delay
+      setTimeout(() => setNewPostId(null), 2000);
+
     } catch (error) {
       addToast("Failed to post content", "error");
     } finally {
@@ -366,129 +436,120 @@ const FeedPage: React.FC<FeedProps> = ({ user }) => {
     }
   };
 
-  const handlePrevPage = () => {
-      if (page > 1) setPage(p => p - 1);
-  };
-
-  const handleNextPage = () => {
-      if (page < totalPages) setPage(p => p + 1);
-  };
-
   return (
     <div className="max-w-3xl mx-auto px-4 py-8">
       {/* Post Creator */}
       <div className="bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-sm p-6 mb-8 shadow-sm dark:shadow-lg transition-colors">
         <h3 className="text-lg font-bold text-black dark:text-white mb-4">{t('whats_on_mind')}</h3>
-        <form onSubmit={handleSubmit}>
-          <textarea
-            className="w-full bg-gray-50 dark:bg-black border border-zinc-300 dark:border-zinc-700 rounded-sm p-4 text-black dark:text-white focus:border-blue-500 focus:outline-none resize-none h-24 placeholder-zinc-400"
-            placeholder={t('share_placeholder')}
-            value={newContent}
-            onChange={(e) => setNewContent(e.target.value)}
-          />
-          
-          {(previewUrls.length > 0 || location) && (
-              <div className="mt-3 p-2 bg-gray-50 dark:bg-black/50 border border-zinc-200 dark:border-zinc-800 rounded-sm animate-fadeIn">
-                   {location && (
-                      <div className="flex items-center gap-2 text-xs text-blue-600 dark:text-blue-400 border border-blue-200 dark:border-blue-900/30 bg-blue-50 dark:bg-blue-900/10 px-2 py-1 rounded w-fit mb-2">
-                          <span>📍 {location}</span>
-                          <button type="button" onClick={() => setLocation(null)} className="text-zinc-500 hover:text-black dark:hover:text-white font-bold">×</button>
-                      </div>
-                   )}
-                   
-                   {previewUrls.length > 0 && (
-                       <div className="grid grid-cols-4 sm:grid-cols-5 md:grid-cols-6 gap-2">
-                           {previewUrls.map((url, idx) => (
-                               <div key={idx} className="relative aspect-square group">
-                                   <img src={url} className="w-full h-full object-cover rounded-sm border border-zinc-300 dark:border-zinc-700" alt={`Preview ${idx}`} />
-                                   <button type="button" onClick={() => removeFile(idx)} className="absolute -top-1 -right-1 bg-red-500 text-white rounded-full p-0.5 w-4 h-4 flex items-center justify-center text-[10px] hover:bg-red-600 opacity-90">×</button>
-                               </div>
-                           ))}
-                       </div>
-                   )}
-              </div>
-          )}
+        <fieldset disabled={submitting} className="group">
+            <form onSubmit={handleSubmit}>
+            <textarea
+                className="w-full bg-gray-50 dark:bg-black border border-zinc-300 dark:border-zinc-700 rounded-sm p-4 text-black dark:text-white focus:border-blue-500 focus:outline-none resize-none h-24 placeholder-zinc-400 disabled:opacity-60 disabled:cursor-not-allowed"
+                placeholder={t('share_placeholder')}
+                value={newContent}
+                onChange={(e) => setNewContent(e.target.value)}
+            />
+            
+            {(previewUrls.length > 0 || location) && (
+                <div className="mt-3 p-2 bg-gray-50 dark:bg-black/50 border border-zinc-200 dark:border-zinc-800 rounded-sm animate-fadeIn">
+                    {location && (
+                        <div className="flex items-center gap-2 text-xs text-blue-600 dark:text-blue-400 border border-blue-200 dark:border-blue-900/30 bg-blue-50 dark:bg-blue-900/10 px-2 py-1 rounded w-fit mb-2">
+                            <span>📍 {location}</span>
+                            <button type="button" onClick={() => setLocation(null)} className="text-zinc-500 hover:text-black dark:hover:text-white font-bold">
+                                <Icons.X className="w-3 h-3" />
+                            </button>
+                        </div>
+                    )}
+                    
+                    {previewUrls.length > 0 && (
+                        <div className="grid grid-cols-4 sm:grid-cols-5 md:grid-cols-6 gap-2">
+                            {previewUrls.map((url, idx) => (
+                                <div key={idx} className="relative aspect-square group">
+                                    <img src={url} className="w-full h-full object-cover rounded-sm border border-zinc-300 dark:border-zinc-700" alt={`Preview ${idx}`} />
+                                    <button type="button" onClick={() => removeFile(idx)} className="absolute -top-1 -right-1 bg-red-500 text-white rounded-full p-0.5 w-4 h-4 flex items-center justify-center text-[10px] hover:bg-red-600 opacity-90">
+                                        <Icons.X className="w-3 h-3" />
+                                    </button>
+                                </div>
+                            ))}
+                        </div>
+                    )}
+                </div>
+            )}
 
-          <div className="flex justify-between items-center mt-4">
-            <div className="text-xs text-zinc-500 flex gap-2">
-              <input type="file" ref={fileInputRef} onChange={handleFileSelect} className="hidden" accept="image/*" multiple />
-              
-              <Button 
-                variant="ghost" 
-                size="sm" 
-                type="button"
-                onClick={() => fileInputRef.current?.click()} 
-                disabled={selectedFiles.length >= 9}
-              >
-                  📷 {selectedFiles.length > 0 && `(${selectedFiles.length}/9)`}
-              </Button>
-              
-              <Button 
-                variant="ghost" 
-                size="sm" 
-                type="button" 
-                onClick={handleGetLocation} 
-                disabled={locationLoading}
-              >
-                  {locationLoading ? <Spinner size="sm"/> : '📍'}
-              </Button>
+            <div className="flex justify-between items-center mt-4">
+                <div className="text-xs text-zinc-500 flex gap-2">
+                <input type="file" ref={fileInputRef} onChange={handleFileSelect} className="hidden" accept="image/*" multiple />
+                
+                <Button 
+                    variant="ghost" 
+                    size="sm" 
+                    type="button"
+                    onClick={() => fileInputRef.current?.click()} 
+                    disabled={selectedFiles.length >= 9 || submitting}
+                    leftIcon={<Icons.Camera className="w-4 h-4" />}
+                >
+                    {selectedFiles.length > 0 && `(${selectedFiles.length}/9)`}
+                </Button>
+                
+                <Button 
+                    variant="ghost" 
+                    size="sm" 
+                    type="button" 
+                    onClick={handleGetLocation} 
+                    disabled={locationLoading || submitting}
+                >
+                    {locationLoading ? <Spinner size="sm"/> : <Icons.MapPin className="w-4 h-4" />}
+                </Button>
+                </div>
+
+                <Button
+                type="submit"
+                disabled={submitting || (!newContent.trim() && selectedFiles.length === 0)}
+                isLoading={submitting}
+                >
+                {t('publish')}
+                </Button>
             </div>
-
-            <Button
-              type="submit"
-              disabled={submitting || (!newContent.trim() && selectedFiles.length === 0)}
-              isLoading={submitting}
-            >
-              {t('publish')}
-            </Button>
-          </div>
-        </form>
+            </form>
+        </fieldset>
       </div>
 
       {/* Feed Stream */}
       <div className="space-y-6">
-        {loading ? (
+        {loading && page === 1 ? (
           <div className="space-y-6 flex flex-col items-center py-12">
              <Spinner size="lg" />
              <p className="text-xs text-zinc-500 tracking-widest mt-4">SYNCING FEED...</p>
           </div>
         ) : (!posts || posts.length === 0) ? (
            <div className="text-center text-zinc-500 dark:text-zinc-600 py-16 border border-dashed border-zinc-300 dark:border-zinc-800 rounded-sm flex flex-col items-center justify-center">
-               <span className="text-4xl mb-4">🔇</span>
+               <Icons.Wind className="w-12 h-12 mb-4 opacity-50" />
                <p>{t('quiet_here')}</p>
            </div>
         ) : (
           <>
             {posts.map((post) => (
-                <FeedItem 
+                <div 
                     key={post.id} 
-                    post={post} 
-                    currentUser={user} 
-                    onDelete={(id) => setPosts(prev => prev.filter(p => p.id !== id))} 
-                />
+                    className={post.id === newPostId ? "animate-slideUp" : ""}
+                    style={post.id === newPostId ? { animationDuration: '0.6s', animationFillMode: 'backwards' } : {}}
+                >
+                    <FeedItem 
+                        post={post} 
+                        currentUser={user} 
+                        onDelete={(id) => setPosts(prev => prev.filter(p => p.id !== id))} 
+                    />
+                </div>
             ))}
             
-            {totalCount > ITEMS_PER_PAGE && (
-                <div className="flex justify-between items-center pt-8 border-t border-zinc-200 dark:border-zinc-800">
-                    <Button 
-                        variant="secondary"
-                        onClick={handlePrevPage} 
-                        disabled={page === 1}
-                    >
-                        ← Prev
-                    </Button>
-                    <span className="text-xs font-mono text-zinc-500">
-                        PAGE {page} / {totalPages}
-                    </span>
-                    <Button 
-                        variant="secondary"
-                        onClick={handleNextPage} 
-                        disabled={page === totalPages}
-                    >
-                        Next →
-                    </Button>
-                </div>
-            )}
+            {/* Infinite Scroll Loader / End Message */}
+            <div ref={observerTarget} className="py-8 text-center flex justify-center">
+                {hasMore ? (
+                    <Spinner size="md" className="opacity-50" />
+                ) : (
+                    <span className="text-xs text-zinc-400 tracking-widest uppercase">{t('end_of_feed')}</span>
+                )}
+            </div>
           </>
         )}
       </div>

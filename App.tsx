@@ -1,10 +1,11 @@
+
 import React, { useState, useEffect } from 'react';
 import { HashRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { Navbar } from './components/Navbar';
 import { User, UserRole, UserStatus } from './types';
-import { getCurrentUser, logout, isBackendConfigured, configureBackend, getSession } from './services/mockBackend';
-import { AppProvider } from './utils/i18n';
-import { ToastProvider } from './components/UI';
+import { getCurrentUser, logout, isBackendConfigured, configureBackend, getSession, SYSTEM_ERROR_EVENT } from './services/mockBackend';
+import { AppProvider, useApp } from './utils/i18n';
+import { Icons, ToastProvider } from './components/UI';
 
 // Pages
 import LandingPage from './pages/LandingPage';
@@ -13,6 +14,7 @@ import RegisterPage from './pages/RegisterPage';
 import FeedPage from './pages/FeedPage';
 import ProfilePage from './pages/ProfilePage';
 import AdminDashboard from './pages/AdminDashboard';
+import PostDetailPage from './pages/PostDetailPage';
 
 interface ProtectedRouteProps {
   user: User | null;
@@ -35,16 +37,82 @@ const ProtectedRoute: React.FC<ProtectedRouteProps> = ({ user, children, role, r
   return <>{children}</>;
 };
 
+const SystemErrorScreen: React.FC<{ error: any, onReset: () => void }> = ({ error, onReset }) => {
+    return (
+        <div className="fixed inset-0 z-[9999] bg-black flex flex-col items-center justify-center text-red-500 p-4 font-mono">
+             <div className="max-w-2xl w-full border border-red-900 bg-red-950/10 p-8 rounded-sm shadow-2xl relative overflow-hidden">
+                 <div className="absolute top-0 left-0 w-full h-1 bg-red-600 animate-pulse"></div>
+                 
+                 <div className="flex items-center gap-4 mb-6">
+                     <Icons.AlertTriangle className="w-12 h-12" />
+                     <div>
+                         <h1 className="text-2xl font-bold tracking-widest uppercase">{error.title || 'SYSTEM FAILURE'}</h1>
+                         <p className="text-xs text-red-400">ERROR_CODE: {error.code || 'UNKNOWN'}</p>
+                     </div>
+                 </div>
+                 
+                 <div className="mb-8 space-y-4">
+                     <div className="bg-black/50 p-4 border border-red-900/50 rounded text-sm leading-relaxed text-red-300 break-all">
+                         {error.message}
+                     </div>
+                     {error.hint && (
+                         <div className="flex items-start gap-2 text-sm text-yellow-500 bg-yellow-900/20 p-3 rounded border border-yellow-900/30">
+                             <span className="font-bold">HINT:</span>
+                             <span>{error.hint}</span>
+                         </div>
+                     )}
+                 </div>
+                 
+                 <div className="flex justify-center gap-4">
+                     <button 
+                        onClick={onReset}
+                        className="px-6 py-3 bg-red-600 text-black font-bold uppercase tracking-wider hover:bg-red-500 transition-colors"
+                     >
+                         REBOOT SYSTEM
+                     </button>
+                 </div>
+             </div>
+        </div>
+    );
+};
+
 const AppContent: React.FC = () => {
   const [user, setUser] = useState<User | null>(null);
   const [hasSession, setHasSession] = useState(false);
   const [loading, setLoading] = useState(true);
   const [isConfigured, setIsConfigured] = useState(isBackendConfigured());
   const [configError, setConfigError] = useState(false);
+  const { siteConfig } = useApp();
+  
+  // Global System Error State
+  const [systemError, setSystemError] = useState<any>(null);
   
   // Setup State
   const [sbUrl, setSbUrl] = useState('');
   const [sbKey, setSbKey] = useState('');
+
+  // Listen for Global Errors
+  useEffect(() => {
+      const handleSystemError = (e: CustomEvent) => {
+          setSystemError(e.detail);
+      };
+      
+      window.addEventListener(SYSTEM_ERROR_EVENT as any, handleSystemError);
+      return () => window.removeEventListener(SYSTEM_ERROR_EVENT as any, handleSystemError);
+  }, []);
+
+  // Dynamic Favicon Effect
+  useEffect(() => {
+    const link: HTMLLinkElement | null = document.querySelector("link[rel*='icon']");
+    if (link) {
+        if (siteConfig.logoUrl) {
+            link.href = siteConfig.logoUrl;
+        } else {
+            // Default Dot Matrix N if no logo uploaded (reverting)
+            link.href = "data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='black'><path d='M4 4h4v4H4zM4 10h4v4H4zM4 16h4v4H4zM10 16h4v4h-4zM16 4h4v4h-4zM16 10h4v4h-4zM16 16h4v4h-4zM10 4h4v4h-4z'/></svg>";
+        }
+    }
+  }, [siteConfig.logoUrl]);
 
   useEffect(() => {
     if (!isConfigured) {
@@ -94,6 +162,17 @@ const AppContent: React.FC = () => {
       localStorage.removeItem('nothing_sb_key');
       window.location.reload();
   };
+  
+  const handleSystemReboot = () => {
+      setSystemError(null);
+      window.location.hash = '/'; // Force back to home
+      window.location.reload(); // Full reload to clear any bad state
+  };
+
+  // Render Critical Error Screen if present
+  if (systemError) {
+      return <SystemErrorScreen error={systemError} onReset={handleSystemReboot} />;
+  }
 
   if (!isConfigured) {
       return (
@@ -132,51 +211,63 @@ const AppContent: React.FC = () => {
   }
 
   return (
-    <AppProvider>
-    <ToastProvider>
-        <HashRouter>
-        <div className="min-h-screen bg-white dark:bg-nothing-black text-black dark:text-nothing-white selection:bg-black selection:text-white dark:selection:bg-white dark:selection:text-black font-sans transition-colors duration-300">
-            <Navbar user={user} onLogout={handleLogout} />
+    <HashRouter>
+      <div className="min-h-screen bg-white dark:bg-nothing-black text-black dark:text-nothing-white selection:bg-black selection:text-white dark:selection:bg-white dark:selection:text-black font-sans transition-colors duration-300">
+        <Navbar user={user} onLogout={handleLogout} />
+        
+        <main className="w-full">
+          <Routes>
+            <Route path="/" element={<LandingPage user={user} />} />
             
-            <main className="w-full">
-            <Routes>
-                <Route path="/" element={<LandingPage user={user} />} />
-                
-                {/* Login Logic */}
-                <Route path="/login" element={user ? <Navigate to="/feed" /> : <LoginPage onLoginSuccess={(u) => setUser(u)} />} />
-                
-                {/* Register/Onboarding Logic */}
-                <Route path="/register" element={
-                    // If user is fully profiled, go to feed.
-                    user ? <Navigate to="/feed" /> : 
-                    // If user is NOT profiled, stay here (RegisterPage handles both Email entry AND Onboarding)
-                    <RegisterPage />
-                } />
-                
-                <Route path="/feed" element={
-                <ProtectedRoute user={user} requireActive={true}>
-                    <FeedPage user={user!} />
-                </ProtectedRoute>
-                } />
-                
-                <Route path="/profile" element={
-                <ProtectedRoute user={user}>
-                    <ProfilePage user={user!} />
-                </ProtectedRoute>
-                } />
+            {/* Login Logic */}
+            <Route path="/login" element={user ? <Navigate to="/feed" /> : <LoginPage onLoginSuccess={(u) => setUser(u)} />} />
+            
+            {/* Register/Onboarding Logic */}
+            <Route path="/register" element={
+                // If user is fully profiled, go to feed.
+                user ? <Navigate to="/feed" /> : 
+                // If user is NOT profiled, stay here (RegisterPage handles both Email entry AND Onboarding)
+                <RegisterPage />
+            } />
+            
+            <Route path="/feed" element={
+              <ProtectedRoute user={user} requireActive={true}>
+                <FeedPage user={user!} />
+              </ProtectedRoute>
+            } />
+            
+            <Route path="/profile" element={
+              <ProtectedRoute user={user}>
+                <ProfilePage user={user!} />
+              </ProtectedRoute>
+            } />
+            
+            <Route path="/post/:id" element={
+              <ProtectedRoute user={user} requireActive={true}>
+                <PostDetailPage />
+              </ProtectedRoute>
+            } />
 
-                <Route path="/admin" element={
-                <ProtectedRoute user={user} role={UserRole.ADMIN}>
-                    <AdminDashboard />
-                </ProtectedRoute>
-                } />
-            </Routes>
-            </main>
-        </div>
-        </HashRouter>
-    </ToastProvider>
-    </AppProvider>
+            <Route path="/admin" element={
+              <ProtectedRoute user={user} role={UserRole.ADMIN}>
+                <AdminDashboard />
+              </ProtectedRoute>
+            } />
+          </Routes>
+        </main>
+      </div>
+    </HashRouter>
   );
 };
 
-export default AppContent;
+const App: React.FC = () => {
+    return (
+        <AppProvider>
+            <ToastProvider>
+                <AppContent />
+            </ToastProvider>
+        </AppProvider>
+    );
+};
+
+export default App;

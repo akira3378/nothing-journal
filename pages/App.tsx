@@ -3,7 +3,7 @@ import { HashRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { Navbar } from '../components/Navbar';
 import { User, UserRole, UserStatus } from '../types';
 import { getCurrentUser, logout, isBackendConfigured, configureBackend, getSession } from '../services/mockBackend';
-import { AppProvider } from '../utils/i18n';
+import { AppProvider, useApp } from '../utils/i18n';
 
 // Pages
 import LandingPage from './pages/LandingPage';
@@ -40,10 +40,24 @@ const AppContent: React.FC = () => {
   const [loading, setLoading] = useState(true);
   const [isConfigured, setIsConfigured] = useState(isBackendConfigured());
   const [configError, setConfigError] = useState(false);
+  const { siteConfig } = useApp();
   
   // Setup State
   const [sbUrl, setSbUrl] = useState('');
   const [sbKey, setSbKey] = useState('');
+
+  // Dynamic Favicon Effect
+  useEffect(() => {
+    const link: HTMLLinkElement | null = document.querySelector("link[rel*='icon']");
+    if (link) {
+        if (siteConfig.logoUrl) {
+            link.href = siteConfig.logoUrl;
+        } else {
+            // Default Dot Matrix N if no logo uploaded (reverting)
+            link.href = "data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='black'><path d='M4 4h4v4H4zM4 10h4v4H4zM4 16h4v4H4zM10 16h4v4h-4zM16 4h4v4h-4zM16 10h4v4h-4zM16 16h4v4h-4zM10 4h4v4h-4z'/></svg>";
+        }
+    }
+  }, [siteConfig.logoUrl]);
 
   useEffect(() => {
     if (!isConfigured) {

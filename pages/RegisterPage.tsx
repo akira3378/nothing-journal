@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { sendOtp, verifyOtp, createProfile, getSession, logout } from '../services/mockBackend';
 import { useApp } from '../utils/i18n';
+import { Icons } from '../components/UI';
 
 const RegisterPage: React.FC = () => {
   const navigate = useNavigate();
@@ -177,16 +178,17 @@ const RegisterPage: React.FC = () => {
         <div className="bg-white dark:bg-zinc-900/30 border border-zinc-200 dark:border-zinc-800 p-8 rounded-sm backdrop-blur-sm shadow-sm dark:shadow-none transition-colors">
            {error && (
             <div className="mb-6 p-3 bg-red-100 dark:bg-red-900/20 border border-red-200 dark:border-red-800 text-red-600 dark:text-red-400 text-sm rounded-sm flex items-center">
-              <span className="mr-2">⚠️</span> {error}
+              <span className="mr-2"><Icons.AlertTriangle className="w-4 h-4" /></span> {error}
             </div>
           )}
 
           {step === 'enter_email' && (
+            <fieldset disabled={loading} className="group">
             <form onSubmit={handleSendCode} className="space-y-6">
               <div>
                 <label className="block text-xs font-bold text-zinc-500 uppercase tracking-wider mb-1">{t('email_label')}</label>
                 <input type="email" required value={email} onChange={e => setEmail(e.target.value)}
-                  className="mt-1 block w-full bg-gray-50 dark:bg-black border border-zinc-300 dark:border-zinc-700 rounded-sm py-3 px-4 text-black dark:text-white focus:border-black dark:focus:border-white focus:outline-none transition-colors placeholder-zinc-400 dark:placeholder-zinc-700" placeholder="you@example.com" />
+                  className="mt-1 block w-full bg-gray-50 dark:bg-black border border-zinc-300 dark:border-zinc-700 rounded-sm py-3 px-4 text-black dark:text-white focus:border-black dark:focus:border-white focus:outline-none transition-colors placeholder-zinc-400 dark:placeholder-zinc-700 disabled:opacity-50" placeholder="you@example.com" />
               </div>
                <div className="bg-yellow-50 dark:bg-yellow-900/10 border border-yellow-200 dark:border-yellow-900/30 p-3 rounded-sm">
                    <p className="text-xs text-yellow-700 dark:text-yellow-500 leading-relaxed">
@@ -199,9 +201,11 @@ const RegisterPage: React.FC = () => {
                 {loading ? t('processing') : 'SEND CODE'}
               </button>
             </form>
+            </fieldset>
           )}
 
           {step === 'enter_otp' && (
+             <fieldset disabled={loading} className="group">
              <form onSubmit={handleVerifyOtp} className="space-y-6">
                 <div className="text-center mb-4">
                     <p className="text-sm text-zinc-500">Code sent to {email}</p>
@@ -214,12 +218,12 @@ const RegisterPage: React.FC = () => {
                         maxLength={6}
                         value={otp}
                         onChange={(e) => setOtp(e.target.value.replace(/[^0-9]/g, ''))}
-                        className="mt-1 block w-full bg-white dark:bg-black border border-zinc-300 dark:border-zinc-700 rounded-sm py-3 px-4 text-black dark:text-white text-center text-2xl tracking-[0.5em] font-mono focus:outline-none focus:border-black dark:focus:border-white transition-colors"
+                        className="mt-1 block w-full bg-white dark:bg-black border border-zinc-300 dark:border-zinc-700 rounded-sm py-3 px-4 text-black dark:text-white text-center text-2xl tracking-[0.5em] font-mono focus:outline-none focus:border-black dark:focus:border-white transition-colors disabled:opacity-50"
                         placeholder="000000"
                     />
                  </div>
                  <div className="flex gap-4">
-                     <button type="button" onClick={() => setStep('enter_email')} className="px-4 py-4 bg-zinc-200 dark:bg-zinc-800 text-black dark:text-white text-sm font-bold rounded-sm">
+                     <button type="button" onClick={() => setStep('enter_email')} className="px-4 py-4 bg-zinc-200 dark:bg-zinc-800 text-black dark:text-white text-sm font-bold rounded-sm disabled:opacity-50">
                          BACK
                      </button>
                      <button type="submit" disabled={loading || otp.length < 6}
@@ -228,9 +232,11 @@ const RegisterPage: React.FC = () => {
                     </button>
                  </div>
              </form>
+             </fieldset>
           )}
 
           {step === 'fill_profile' && (
+            <fieldset disabled={loading} className="group">
             <form onSubmit={handleCompleteProfile} className="space-y-6 animate-fadeIn">
                 
                 {/* Avatar */}
@@ -243,9 +249,9 @@ const RegisterPage: React.FC = () => {
                                  <span className="text-xs text-zinc-400 text-center px-2">{t('avatar_upload')}</span>
                              )}
                         </div>
-                        <input type="file" onChange={(e) => handleFileChange(e, 'avatar')} className="absolute inset-0 opacity-0 cursor-pointer" accept="image/*" />
+                        <input type="file" onChange={(e) => handleFileChange(e, 'avatar')} className="absolute inset-0 opacity-0 cursor-pointer disabled:cursor-not-allowed" accept="image/*" />
                         <div className="absolute bottom-0 right-0 bg-black dark:bg-white text-white dark:text-black rounded-full p-1 border border-white dark:border-black">
-                             <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 4v16m8-8H4"></path></svg>
+                             <Icons.Camera className="w-3 h-3" />
                         </div>
                     </div>
                 </div>
@@ -254,7 +260,7 @@ const RegisterPage: React.FC = () => {
                 <div>
                     <label className="block text-xs font-bold text-zinc-500 uppercase tracking-wider mb-1">{t('nickname')}</label>
                     <input type="text" required value={nickname} onChange={e => setNickname(e.target.value)}
-                    className="mt-1 block w-full bg-gray-50 dark:bg-black border border-zinc-300 dark:border-zinc-700 rounded-sm py-3 px-4 text-black dark:text-white focus:border-black dark:focus:border-white focus:outline-none transition-colors placeholder-zinc-400 dark:placeholder-zinc-700" placeholder="CyberPunk2077" />
+                    className="mt-1 block w-full bg-gray-50 dark:bg-black border border-zinc-300 dark:border-zinc-700 rounded-sm py-3 px-4 text-black dark:text-white focus:border-black dark:focus:border-white focus:outline-none transition-colors placeholder-zinc-400 dark:placeholder-zinc-700 disabled:opacity-50" placeholder="CyberPunk2077" />
                 </div>
 
                 {/* Tags */}
@@ -264,7 +270,9 @@ const RegisterPage: React.FC = () => {
                     {tags.map(tag => (
                         <span key={tag} className="inline-flex items-center px-2.5 py-1 rounded-sm text-xs font-bold bg-black dark:bg-white text-white dark:text-black border border-black dark:border-white animate-fadeIn">
                         {tag}
-                        <button type="button" onClick={() => removeTag(tag)} className="ml-2 text-zinc-300 dark:text-zinc-500 hover:text-red-500 font-bold">×</button>
+                        <button type="button" onClick={() => removeTag(tag)} className="ml-2 text-zinc-300 dark:text-zinc-500 hover:text-red-500 font-bold disabled:pointer-events-none">
+                            <Icons.X className="w-3 h-3" />
+                        </button>
                         </span>
                     ))}
                     </div>
@@ -284,13 +292,11 @@ const RegisterPage: React.FC = () => {
                     
                     {!credPreview ? (
                         <div className="mt-1 flex justify-center px-6 pt-5 pb-6 border-2 border-zinc-300 dark:border-zinc-800 border-dashed rounded-sm hover:border-zinc-500 dark:hover:border-zinc-600 transition-colors cursor-pointer relative group">
-                            <input type="file" accept="image/*" className="absolute inset-0 w-full h-full opacity-0 cursor-pointer" 
+                            <input type="file" accept="image/*" className="absolute inset-0 w-full h-full opacity-0 cursor-pointer disabled:cursor-not-allowed" 
                                 onChange={(e) => handleFileChange(e, 'cred')} />
                             <div className="space-y-1 text-center pointer-events-none">
-                                <svg className="mx-auto h-12 w-12 text-zinc-400 dark:text-zinc-600 group-hover:text-zinc-600 dark:group-hover:text-zinc-400 transition-colors" stroke="currentColor" fill="none" viewBox="0 0 48 48">
-                                <path d="M28 8H12a4 4 0 00-4 4v20m32-12v8m0 0v8a4 4 0 01-4 4H12a4 4 0 01-4-4v-4m32-4l-3.172-3.172a4 4 0 00-5.656 0L28 28M8 32l9.172-9.172a4 4 0 015.656 0L28 28m0 0l4 4m4-24h8m-4-4v8m-12 4h.02" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
-                                </svg>
-                                <div className="flex text-sm text-zinc-500 dark:text-zinc-400 justify-center">
+                                <Icons.Camera className="mx-auto h-12 w-12 text-zinc-400 dark:text-zinc-600 group-hover:text-zinc-600 dark:group-hover:text-zinc-400" />
+                                <div className="flex text-sm text-zinc-500 dark:text-zinc-400 justify-center mt-2">
                                     <span className="relative cursor-pointer font-medium text-black dark:text-white group-hover:underline">{t('upload_text')}</span>
                                 </div>
                                 <p className="text-xs text-zinc-500 dark:text-zinc-600">{t('upload_hint')}</p>
@@ -303,9 +309,9 @@ const RegisterPage: React.FC = () => {
                                 <button 
                                     type="button"
                                     onClick={() => { setCredFile(null); setCredPreview(null); }}
-                                    className="bg-black/80 text-white p-1.5 rounded-full hover:bg-red-900 transition-colors border border-zinc-700"
+                                    className="bg-black/80 text-white p-1.5 rounded-full hover:bg-red-900 transition-colors border border-zinc-700 disabled:opacity-50"
                                 >
-                                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12"></path></svg>
+                                    <Icons.X className="w-4 h-4" />
                                 </button>
                             </div>
                         </div>
@@ -313,7 +319,7 @@ const RegisterPage: React.FC = () => {
                 </div>
 
                 <div className="flex gap-4">
-                    <button type="button" onClick={handleCancelOnboarding} className="px-4 py-4 bg-zinc-200 dark:bg-zinc-800 text-black dark:text-white text-sm font-bold rounded-sm hover:bg-zinc-300 dark:hover:bg-zinc-700">
+                    <button type="button" onClick={handleCancelOnboarding} className="px-4 py-4 bg-zinc-200 dark:bg-zinc-800 text-black dark:text-white text-sm font-bold rounded-sm hover:bg-zinc-300 dark:hover:bg-zinc-700 disabled:opacity-50">
                         {t('cancel')}
                     </button>
                     <button type="submit" disabled={loading}
@@ -323,6 +329,7 @@ const RegisterPage: React.FC = () => {
                     </button>
                 </div>
             </form>
+            </fieldset>
           )}
 
           {step === 'submitted' && (
