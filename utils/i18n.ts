@@ -20,7 +20,7 @@ const translations = {
     landing_btn: '申请入驻',
     transmissions: '信号传输',
     footer_rights: 'NOTHING CORP. 版权所有.',
-    
+
     // Login
     access_title: '访问权限',
     enter_void: '进入虚空',
@@ -93,10 +93,13 @@ const translations = {
 
     // Admin & Global Config
     administration: '系统管理',
+    control_center: '控制中心',
     members: '成员管理',
     content_config: '内容与配置',
     announcements: '公告管理',
+    announcements_comm: '公告与通讯',
     site_config: '站点配置',
+    site_config_desc: '全局系统设置',
     new_announcement: '发布新公告',
     edit_announcement: '编辑公告',
     title: '标题',
@@ -112,7 +115,14 @@ const translations = {
     edit: '编辑',
     update: '更新',
     cancel_edit: '取消编辑',
-    
+
+    // Admin Sections
+    new_applications: '新申请',
+    renewal_requests: '续期申请',
+    member_database: '成员数据库',
+    no_announcements: '暂无公告',
+    records: '条记录',
+
     // Admin Modal
     edit_user: '编辑用户',
     expiration_date: '过期日期',
@@ -121,6 +131,33 @@ const translations = {
     logo_upload: '站点 LOGO 设置',
     logo_desc: '上传透明背景 PNG (建议 128x128)。这也将更新浏览器图标。',
     remove_logo: '恢复默认 LOGO',
+    upload: '上传',
+    remove: '移除',
+    save_changes: '保存更改',
+    cancel: '取消',
+
+    // Messages
+    user_updated: '用户更新成功',
+    user_update_fail: '用户更新失败',
+    user_approved: '用户已批准',
+    status_updated: '用户状态已更新为',
+    announcement_published: '公告已发布',
+    announcement_updated: '公告已更新',
+    announcement_deleted: '公告已删除',
+    config_saved: '站点配置已保存',
+    config_fail: '配置保存失败',
+    logo_fail: 'Logo 上传失败',
+    delete_ann_confirm: '确定要删除此公告吗？',
+    confirm_action: '确定要{action}此用户吗？',
+    future_date_error: '过期日期必须在未来',
+    fetch_fail: '数据获取失败',
+
+    // Feed Messages
+    geo_fail: '不支持地理位置',
+    loc_fail: '无法获取位置',
+    content_published: '内容已发布',
+    post_fail: '发布失败',
+    syncing_feed: '同步动态中...',
 
     // Status / Roles
     PENDING: '审核中',
@@ -218,10 +255,13 @@ const translations = {
 
     // Admin & Global Config
     administration: 'ADMINISTRATION',
+    control_center: 'Control Center',
     members: 'Members',
     content_config: 'Content & Config',
     announcements: 'Announcements',
+    announcements_comm: 'Announcements & Communication',
     site_config: 'Site Config',
+    site_config_desc: 'General system-wide settings',
     new_announcement: 'New Announcement',
     edit_announcement: 'Edit Announcement',
     title: 'Title',
@@ -238,6 +278,13 @@ const translations = {
     update: 'Update',
     cancel_edit: 'Cancel Edit',
 
+    // Admin Sections
+    new_applications: 'New Applications',
+    renewal_requests: 'Renewal Requests',
+    member_database: 'Member Database',
+    no_announcements: 'No announcements found.',
+    records: 'records',
+
     // Admin Modal
     edit_user: 'Edit User',
     expiration_date: 'Expiration Date',
@@ -246,6 +293,33 @@ const translations = {
     logo_upload: 'Site Logo Settings',
     logo_desc: 'Upload a transparent PNG (rec. 128x128). This will also update the browser favicon.',
     remove_logo: 'Restore Default Logo',
+    upload: 'Upload',
+    remove: 'Remove',
+    save_changes: 'SAVE CHANGES',
+    cancel: 'CANCEL',
+
+    // Messages
+    user_updated: 'User updated successfully',
+    user_update_fail: 'Failed to update user',
+    user_approved: 'User approved',
+    status_updated: 'User status updated to',
+    announcement_published: 'Announcement published',
+    announcement_updated: 'Announcement updated',
+    announcement_deleted: 'Announcement deleted',
+    config_saved: 'Site configuration saved',
+    config_fail: 'Failed to save config',
+    logo_fail: 'Logo upload failed',
+    delete_ann_confirm: 'Delete this announcement?',
+    confirm_action: 'Are you sure you want to {action} this user?',
+    future_date_error: 'Expiration date must be in the future',
+    fetch_fail: 'Failed to fetch data',
+
+    // Feed Messages
+    geo_fail: 'Geolocation not supported',
+    loc_fail: 'Could not fetch location',
+    content_published: 'Content published',
+    post_fail: 'Failed to post content',
+    syncing_feed: 'SYNCING FEED...',
 
     // Status / Roles
     PENDING: 'PENDING',
@@ -270,12 +344,12 @@ interface AppContextType {
 
 export const AppContext = createContext<AppContextType>({
   language: 'en',
-  setLanguage: () => {},
+  setLanguage: () => { },
   theme: 'light',
-  toggleTheme: () => {},
+  toggleTheme: () => { },
   t: (key) => key,
   siteConfig: { landingVideoUrl: '', logoUrl: '' },
-  refreshConfig: () => {}
+  refreshConfig: () => { }
 });
 
 export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
@@ -285,23 +359,23 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
 
   // Initial config fetch
   const refreshConfig = async () => {
-      const config = await getSiteConfig();
-      setSiteConfig(config);
+    const config = await getSiteConfig();
+    setSiteConfig(config);
   };
 
   useEffect(() => {
     refreshConfig();
-    
+
     // Initialize from local storage or system preference
     const savedLang = localStorage.getItem('app_lang') as Language;
     if (savedLang) setLanguage(savedLang);
 
     const savedTheme = localStorage.getItem('app_theme') as Theme;
     if (savedTheme) {
-        setTheme(savedTheme);
+      setTheme(savedTheme);
     } else {
-        // Default to Light as per user request
-        setTheme('light');
+      // Default to Light as per user request
+      setTheme('light');
     }
   }, []);
 
@@ -313,9 +387,9 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     localStorage.setItem('app_theme', theme);
     const html = document.documentElement;
     if (theme === 'dark') {
-        html.classList.add('dark');
+      html.classList.add('dark');
     } else {
-        html.classList.remove('dark');
+      html.classList.remove('dark');
     }
   }, [theme]);
 
