@@ -54,6 +54,27 @@ const ProfilePage: React.FC<ProfileProps> = ({ user }) => {
     const [avatarFile, setAvatarFile] = useState<File | null>(null);
     const [avatarPreview, setAvatarPreview] = useState<string | null>(null);
 
+    const [credentialFile, setCredentialFile] = useState<File | null>(null);
+    const [credentialPreview, setCredentialPreview] = useState<string | null>(null);
+
+    const handleRenew = async () => {
+        if (!credentialFile) return;
+        setSaving(true);
+        try {
+            await updateUserProfile(user.id, {
+                credentialFile: credentialFile,
+                status: UserStatus.PENDING,
+                isRenewal: true
+            });
+            alert(t('renewal_submitted'));
+            window.location.reload();
+        } catch (e) {
+            alert(t('renewal_fail'));
+        } finally {
+            setSaving(false);
+        }
+    };
+
     const handleSave = async () => {
         setSaving(true);
         try {
@@ -138,9 +159,11 @@ const ProfilePage: React.FC<ProfileProps> = ({ user }) => {
                             {isEditing ? (
                                 <fieldset disabled={saving} className="group">
                                     <div className="mb-4 flex items-center gap-4">
-                                        <div className="relative group/avatar cursor-pointer">
-                                            <div className="h-16 w-16 rounded-full overflow-hidden border border-zinc-300 dark:border-zinc-700">
-                                                {user.avatarUrl ? (
+                                        <div className="relative group/avatar cursor-pointer h-16 w-16">
+                                            <div className="h-full w-full rounded-full overflow-hidden border border-zinc-300 dark:border-zinc-700">
+                                                {avatarPreview ? (
+                                                    <img src={avatarPreview} className="w-full h-full object-cover" />
+                                                ) : user.avatarUrl ? (
                                                     <img src={user.avatarUrl} className="w-full h-full object-cover" />
                                                 ) : (
                                                     <div className="w-full h-full bg-zinc-100 dark:bg-zinc-800 flex items-center justify-center">
@@ -148,6 +171,14 @@ const ProfilePage: React.FC<ProfileProps> = ({ user }) => {
                                                     </div>
                                                 )}
                                             </div>
+
+                                            {/* Overlay - pointer-events-none to let clicks pass through to input if input is below, 
+                                                OR input on top with opacity 0. 
+                                                Best practice: Input on top, z-index high. */}
+                                            <div className="absolute inset-0 bg-black/50 flex items-center justify-center opacity-0 group-hover/avatar:opacity-100 transition-opacity rounded-full pointer-events-none">
+                                                <Icons.Camera className="w-4 h-4 text-white" />
+                                            </div>
+
                                             <input
                                                 type="file"
                                                 accept="image/*"
@@ -158,11 +189,8 @@ const ProfilePage: React.FC<ProfileProps> = ({ user }) => {
                                                         setAvatarPreview(URL.createObjectURL(f));
                                                     }
                                                 }}
-                                                className="absolute inset-0 opacity-0 cursor-pointer"
+                                                className="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-10"
                                             />
-                                            <div className="absolute inset-0 bg-black/50 flex items-center justify-center opacity-0 group-hover/avatar:opacity-100 transition-opacity rounded-full">
-                                                <Icons.Camera className="w-4 h-4 text-white" />
-                                            </div>
                                         </div>
                                         <div className="text-xs text-zinc-500">Click to change avatar</div>
                                     </div>
@@ -223,7 +251,42 @@ const ProfilePage: React.FC<ProfileProps> = ({ user }) => {
                     <div className="mt-12 grid grid-cols-1 md:grid-cols-2 gap-8">
                         <div className="p-6 bg-gray-50 dark:bg-black border border-zinc-200 dark:border-zinc-800 rounded-sm">
                             <h3 className="text-sm font-bold text-zinc-500 uppercase tracking-widest mb-4 border-b border-zinc-200 dark:border-zinc-800 pb-2">{t('credentials')}</h3>
-                            {user.credentialUrl ? (
+                            {user.status === UserStatus.EXPIRED ? (
+                                <div className="space-y-4">
+                                    <div className="p-4 bg-orange-50 dark:bg-orange-900/20 border border-orange-200 dark:border-orange-800 rounded-sm">
+                                        <h4 className="text-sm font-bold text-orange-800 dark:text-orange-400 mb-2">{t('membership_expired')}</h4>
+                                        <p className="text-xs text-orange-700 dark:text-orange-300 mb-4">{t('renew_desc')}</p>
+
+                                        <div className="flex flex-col gap-3">
+                                            <input
+                                                type="file"
+                                                accept="image/*"
+                                                onChange={(e) => {
+                                                    if (e.target.files?.[0]) {
+                                                        setCredentialFile(e.target.files[0]);
+                                                        setCredentialPreview(URL.createObjectURL(e.target.files[0]));
+                                                    }
+                                                }}
+                                                className="text-xs text-zinc-500 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-xs file:font-semibold file:bg-black file:text-white hover:file:bg-zinc-800 dark:file:bg-white dark:file:text-black"
+                                            />
+
+                                            {credentialPreview && (
+                                                <div className="relative h-32 w-full bg-zinc-100 dark:bg-black rounded-sm overflow-hidden border border-zinc-200 dark:border-zinc-800">
+                                                    <img src={credentialPreview} className="w-full h-full object-contain" />
+                                                </div>
+                                            )}
+
+                                            <button
+                                                onClick={handleRenew}
+                                                disabled={!credentialFile || saving}
+                                                className="w-full py-2 bg-black dark:bg-white text-white dark:text-black text-xs font-bold uppercase tracking-wider rounded-sm hover:opacity-80 disabled:opacity-50 disabled:cursor-not-allowed transition-all"
+                                            >
+                                                {saving ? <Spinner size="sm" className="border-white dark:border-black" /> : t('submit_renewal')}
+                                            </button>
+                                        </div>
+                                    </div>
+                                </div>
+                            ) : user.credentialUrl ? (
                                 <div className="relative group overflow-hidden rounded-sm border border-zinc-300 dark:border-zinc-700 flex justify-center bg-zinc-100 dark:bg-zinc-900 p-2">
                                     <ImagePreview
                                         src={user.credentialUrl}

@@ -101,8 +101,25 @@ const PostDetailPage: React.FC = () => {
             try {
                 await deletePost(post.id);
                 navigate('/feed');
-            } catch (e) {
-                addToast(t('delete_failed'), 'error');
+            } catch (e: any) {
+                addToast(e.message || t('delete_failed'), 'error');
+            }
+        }
+    };
+
+    const handleDeleteComment = async (cid: string) => {
+        if (confirm(t('delete_confirm'))) {
+            try {
+                await deleteComment(cid);
+                // Small delay to ensure DB propagation (though await should be enough)
+                await new Promise(r => setTimeout(r, 100));
+                // Refresh comments
+                const data = await getComments(post.id);
+                console.log("Refreshed comments:", data);
+                setComments(data);
+            } catch (e: any) {
+                console.error("Delete comment error:", e);
+                addToast(e.message || t('failed_delete_comment'), 'error');
             }
         }
     };
@@ -208,32 +225,8 @@ const PostDetailPage: React.FC = () => {
                             key={c.id}
                             comment={c}
                             currentUser={currentUser}
-                            onDelete={async (cid) => {
-                                if (confirm(t('delete_confirm'))) {
-                                    try {
-                                        await deleteComment(cid);
-                                        // Refresh comments
-                                        const data = await getComments(post.id);
-                                        setComments(data);
-                                    } catch (e) {
-                                        addToast(t('failed_delete_comment'), 'error');
-                                    }
-                                }
-                            }}
-                            onReply={(cid, username) => {
-                                setCommentInput(`@${username} `);
-                                // Ideally we would track parentId state here, but for now simple text reply or we can add parentId state
-                                // The user asked for nested comments. We should probably support actual nesting.
-                                // Let's assume the backend 'addComment' handles parentId if we pass it.
-                                // But the current UI input is global at the bottom.
-                                // To keep it simple, we'll just focus input. 
-                                // To do it properly, we need a 'replyingTo' state.
-                            }}
-                            // We need to pass a way to set parentId for the new comment
-                            setReplyingTo={(id) => {
-                                // This requires state in the parent component
-                                // Let's add that state.
-                            }}
+                            onDelete={handleDeleteComment}
+                            onReply={handleReply}
                         />
                     ))}
                 </div>

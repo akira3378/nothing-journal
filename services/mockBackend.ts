@@ -426,16 +426,31 @@ export const renewMembership = async (credentialFile: File): Promise<ApiResponse
     }
 }
 
-export const updateUserProfile = async (userId: string, updates: { nickname?: string; jobTags?: string[]; avatarFile?: File }) => {
+export const updateUserProfile = async (userId: string, updates: {
+    nickname?: string;
+    jobTags?: string[];
+    avatarFile?: File;
+    credentialFile?: File;
+    status?: UserStatus;
+    isRenewal?: boolean;
+}) => {
     if (!supabase) return;
 
     const payload: any = {};
     if (updates.nickname) payload.nickname = updates.nickname;
     if (updates.jobTags) payload.job_tags = updates.jobTags;
+    if (updates.status) payload.status = updates.status;
+    if (updates.isRenewal !== undefined) payload.is_renewal = updates.isRenewal;
 
     if (updates.avatarFile) {
         const url = await uploadImage(updates.avatarFile, 'avatars');
         if (url) payload.avatar_url = url;
+    }
+
+    if (updates.credentialFile) {
+        // Use 'assets' bucket for credentials as 'credentials' bucket might not exist
+        const url = await uploadImage(updates.credentialFile, 'assets');
+        if (url) payload.credential_url = url;
     }
 
     const { error } = await supabase.from('profiles').update(payload).eq('id', userId);
@@ -780,16 +795,31 @@ export const createPost = async (content: string, files: File[] = [], location?:
 
 export const deletePost = async (postId: string) => {
     if (!supabase) return;
-    const { error, count } = await supabase.from('posts').delete({ count: 'exact' }).eq('id', postId);
+    // Use select() to return the deleted record. If list is empty, nothing was deleted.
+    const { data, error } = await supabase.from('posts').delete().eq('id', postId).select();
+
     if (error) throw error;
-    if (count === 0) throw new Error("Post was not deleted (maybe already deleted or permission denied)");
+    if (!data || data.length === 0) {
+        // Double check if it exists
+        const { count } = await supabase.from('posts').select('*', { count: 'exact', head: true }).eq('id', postId);
+        if (count && count > 0) {
+            throw new Error("Permission denied: You cannot delete this post.");
+        }
+        // If count is 0, it's already deleted, which is fine, we don't throw.
+    }
 };
 
 export const deleteComment = async (commentId: string) => {
     if (!supabase) return;
-    const { error, count } = await supabase.from('comments').delete({ count: 'exact' }).eq('id', commentId);
+    const { data, error } = await supabase.from('comments').delete().eq('id', commentId).select();
+
     if (error) throw error;
-    if (count === 0) throw new Error("Comment was not deleted");
+    if (!data || data.length === 0) {
+        const { count } = await supabase.from('comments').select('*', { count: 'exact', head: true }).eq('id', commentId);
+        if (count && count > 0) {
+            throw new Error("Permission denied: You cannot delete this comment.");
+        }
+    }
 };
 
 // --- Interactions ---

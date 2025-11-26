@@ -39,9 +39,10 @@ const LandingPage: React.FC<LandingProps> = ({ user }) => {
     <div className="flex flex-col min-h-[calc(100vh-64px)] bg-white dark:bg-black transition-colors duration-500">
 
       {/* Hero Section */}
-      <header className="relative flex flex-col items-center justify-center text-center px-4 py-32 md:py-48 overflow-hidden">
-        {/* Abstract Background Elements */}
-        <div className="absolute inset-0 z-0 pointer-events-none">
+      {/* Hero Section */}
+      <header className="relative flex flex-col items-center justify-center text-center px-4 py-32 md:py-48">
+        {/* Abstract Background Elements - Wrapped to prevent overflow but allow content overflow */}
+        <div className="absolute inset-0 z-0 pointer-events-none overflow-hidden">
           <div className="absolute top-0 left-1/2 -translate-x-1/2 w-[800px] h-[800px] bg-gradient-to-b from-zinc-100 to-transparent dark:from-zinc-900/50 dark:to-transparent rounded-full blur-3xl opacity-50"></div>
           <div className="absolute inset-0 opacity-[0.02] bg-[url('https://grainy-gradients.vercel.app/noise.svg')]"></div>
         </div>
@@ -58,13 +59,14 @@ const LandingPage: React.FC<LandingProps> = ({ user }) => {
             <div className="flex flex-col sm:flex-row gap-6 justify-center animate-slideUp" style={{ animationDelay: '0.2s' }}>
               <button
                 onClick={() => navigate('/register')}
-                className="px-10 py-4 bg-black dark:bg-white text-white dark:text-black font-bold text-sm rounded-full hover:scale-105 transition-transform tracking-widest uppercase shadow-xl"
+                className="group relative px-10 py-4 bg-black dark:bg-white text-white dark:text-black font-bold text-sm rounded-full hover:scale-105 active:scale-95 transition-all duration-300 tracking-widest uppercase shadow-xl hover:shadow-2xl hover:shadow-black/20 dark:hover:shadow-white/20"
               >
-                {t('join_us')}
+                <span className="relative z-10">{t('join_us')}</span>
+                <div className="absolute inset-0 rounded-full bg-gradient-to-r from-zinc-800 to-black dark:from-zinc-200 dark:to-white opacity-0 group-hover:opacity-100 transition-opacity duration-300"></div>
               </button>
               <button
                 onClick={() => navigate('/login')}
-                className="px-10 py-4 bg-transparent border border-zinc-300 dark:border-zinc-700 text-black dark:text-white font-bold text-sm rounded-full hover:bg-zinc-50 dark:hover:bg-zinc-900 transition-all tracking-widest uppercase"
+                className="px-10 py-4 bg-transparent border border-zinc-300 dark:border-zinc-700 text-black dark:text-white font-bold text-sm rounded-full hover:bg-zinc-50 dark:hover:bg-zinc-900 hover:border-black dark:hover:border-white active:scale-95 transition-all duration-300 tracking-widest uppercase backdrop-blur-sm"
               >
                 {t('login')}
               </button>

@@ -59,6 +59,11 @@ const translations = {
     reg_success_title: '欢迎加入',
     reg_success_desc: '注册成功！您现在已是正式成员。',
     start_exploring: '开始探索',
+    membership_expired: '会员资格已过期',
+    renew_desc: '请上传新的凭证以申请续期。',
+    submit_renewal: '提交续期申请',
+    renewal_submitted: '续期申请已提交，请等待审核。',
+    renewal_fail: '提交失败，请重试。',
 
     // Feed
     whats_on_mind: '分享你的旅程...',
@@ -186,7 +191,7 @@ const translations = {
     profile_update_fail: '更新资料失败',
     account_id: '账户 ID',
     auth_member: '认证成员',
-    my_transmissions: '我的传输',
+    my_transmissions: '我的动态',
     no_broadcasts: '您还没有发布任何广播。',
     fetch_posts_fail: '获取帖子失败',
     // Landing Page Redesign
@@ -253,6 +258,11 @@ const translations = {
     reg_success_title: 'Welcome Aboard',
     reg_success_desc: 'Registration complete! You are now a full member.',
     start_exploring: 'Start Exploring',
+    membership_expired: 'Membership Expired',
+    renew_desc: 'Please upload a new credential to renew your membership.',
+    submit_renewal: 'Submit Renewal',
+    renewal_submitted: 'Renewal request submitted. Please wait for approval.',
+    renewal_fail: 'Submission failed. Please try again.',
 
     // Feed
     whats_on_mind: 'Share your journey...',
