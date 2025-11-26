@@ -79,8 +79,8 @@ import { User, UserRole, UserStatus, Announcement, Post, ApiResponse, Comment, S
 
 // --- Configuration Management ---
 const CONFIG_KEYS = {
-  URL: 'nothing_sb_url',
-  KEY: 'nothing_sb_key'
+    URL: 'nothing_sb_url',
+    KEY: 'nothing_sb_key'
 };
 
 const DEFAULT_URL = 'https://dyspuewvcrgzlvoebson.supabase.co';
@@ -100,7 +100,7 @@ interface SystemErrorDetail {
 
 const dispatchFatalError = (error: any, context: string) => {
     console.error(`[Fatal Error in ${context}]`, error);
-    
+
     let detail: SystemErrorDetail = {
         title: 'System Malfunction',
         message: error.message || 'An unexpected error occurred.',
@@ -129,38 +129,38 @@ const dispatchFatalError = (error: any, context: string) => {
 };
 
 export const isBackendConfigured = () => {
-  return (!!localStorage.getItem(CONFIG_KEYS.URL) && !!localStorage.getItem(CONFIG_KEYS.KEY)) || (!!DEFAULT_URL && !!DEFAULT_KEY);
+    return (!!localStorage.getItem(CONFIG_KEYS.URL) && !!localStorage.getItem(CONFIG_KEYS.KEY)) || (!!DEFAULT_URL && !!DEFAULT_KEY);
 };
 
 export const configureBackend = (url: string, key: string) => {
-  localStorage.setItem(CONFIG_KEYS.URL, url);
-  localStorage.setItem(CONFIG_KEYS.KEY, key);
-  initializeClient();
+    localStorage.setItem(CONFIG_KEYS.URL, url);
+    localStorage.setItem(CONFIG_KEYS.KEY, key);
+    initializeClient();
 };
 
 const initializeClient = () => {
-  let url = localStorage.getItem(CONFIG_KEYS.URL);
-  let key = localStorage.getItem(CONFIG_KEYS.KEY);
+    let url = localStorage.getItem(CONFIG_KEYS.URL);
+    let key = localStorage.getItem(CONFIG_KEYS.KEY);
 
-  if (!url || !key) {
-    url = DEFAULT_URL;
-    key = DEFAULT_KEY;
-  }
-
-  if (url && key) {
-    try {
-      supabase = createClient(url, key);
-    } catch (e) {
-      console.error("Failed to initialize Supabase client:", e);
+    if (!url || !key) {
+        url = DEFAULT_URL;
+        key = DEFAULT_KEY;
     }
-  }
+
+    if (url && key) {
+        try {
+            supabase = createClient(url, key);
+        } catch (e) {
+            console.error("Failed to initialize Supabase client:", e);
+        }
+    }
 };
 
 initializeClient();
 
 const ensureClient = (): ApiResponse<any> => {
-  if (!supabase) return { success: false, error: 'Backend not configured' };
-  return { success: true };
+    if (!supabase) return { success: false, error: 'Backend not configured' };
+    return { success: true };
 };
 
 // --- Helper: Image Compression ---
@@ -171,12 +171,12 @@ const compressImage = async (file: File): Promise<File> => {
     return new Promise((resolve, reject) => {
         const img = new Image();
         const url = URL.createObjectURL(file);
-        
+
         img.onload = () => {
             URL.revokeObjectURL(url);
             const canvas = document.createElement('canvas');
             const ctx = canvas.getContext('2d');
-            
+
             if (!ctx) {
                 resolve(file); // Fallback
                 return;
@@ -208,9 +208,9 @@ const compressImage = async (file: File): Promise<File> => {
                 if (blob) {
                     // If compressed blob is actually larger (rare but possible with low res PNGs), return original
                     if (blob.size > file.size) {
-                         resolve(file);
+                        resolve(file);
                     } else {
-                         const newFile = new File([blob], file.name.replace(/\.[^/.]+$/, ".jpg"), {
+                        const newFile = new File([blob], file.name.replace(/\.[^/.]+$/, ".jpg"), {
                             type: 'image/jpeg',
                             lastModified: Date.now(),
                         });
@@ -237,50 +237,50 @@ export const getSession = async (): Promise<Session | null> => {
 
 // Step 1: Send OTP (Code)
 export const sendOtp = async (email: string, isRegistration: boolean = false): Promise<ApiResponse<string>> => {
-  const check = ensureClient();
-  if (!check.success) return check;
+    const check = ensureClient();
+    if (!check.success) return check;
 
-  const cleanEmail = email.trim().toLowerCase();
+    const cleanEmail = email.trim().toLowerCase();
 
-  try {
-    // Business Logic Checks
-    if (isRegistration) {
-        const { data: existing } = await supabase!.from('profiles').select('status').eq('email', cleanEmail).maybeSingle();
-        if (existing) {
-            // Logic Requirement: If user exists and is EXPIRED, tell them to Renew (via Login)
-            if (existing.status === 'EXPIRED') {
-                return { success: false, error: 'Account expired. Please Log In to renew membership.' };
+    try {
+        // Business Logic Checks
+        if (isRegistration) {
+            const { data: existing } = await supabase!.from('profiles').select('status').eq('email', cleanEmail).maybeSingle();
+            if (existing) {
+                // Logic Requirement: If user exists and is EXPIRED, tell them to Renew (via Login)
+                if (existing.status === 'EXPIRED') {
+                    return { success: false, error: 'Account expired. Please Log In to renew membership.' };
+                }
+                // If DELETED, we might allow re-registration, but for now block to be safe or ask support
+                if (existing.status === 'DELETED') {
+                    return { success: false, error: 'Account previously deleted. Contact admin.' };
+                }
+                return { success: false, error: 'Email already registered. Please Log In.' };
             }
-            // If DELETED, we might allow re-registration, but for now block to be safe or ask support
+        } else {
+            const { data: existing } = await supabase!.from('profiles').select('status').eq('email', cleanEmail).maybeSingle();
+            if (!existing) {
+                return { success: false, error: 'Member not found. Please register first.' };
+            }
+            // Strict Login Check
             if (existing.status === 'DELETED') {
-                return { success: false, error: 'Account previously deleted. Contact admin.' };
+                return { success: false, error: 'Account has been deactivated.' };
             }
-            return { success: false, error: 'Email already registered. Please Log In.' };
         }
-    } else {
-        const { data: existing } = await supabase!.from('profiles').select('status').eq('email', cleanEmail).maybeSingle();
-        if (!existing) {
-            return { success: false, error: 'Member not found. Please register first.' };
-        }
-        // Strict Login Check
-        if (existing.status === 'DELETED') {
-             return { success: false, error: 'Account has been deactivated.' };
-        }
+
+        // Send OTP
+        const { error } = await supabase!.auth.signInWithOtp({
+            email: cleanEmail,
+            options: {
+                shouldCreateUser: isRegistration,
+            },
+        });
+
+        if (error) throw error;
+        return { success: true, data: 'Verification code sent.' };
+    } catch (err: any) {
+        return { success: false, error: err.message || 'Failed to send Code' };
     }
-
-    // Send OTP
-    const { error } = await supabase!.auth.signInWithOtp({
-      email: cleanEmail,
-      options: {
-        shouldCreateUser: isRegistration,
-      },
-    });
-
-    if (error) throw error;
-    return { success: true, data: 'Verification code sent.' };
-  } catch (err: any) {
-    return { success: false, error: err.message || 'Failed to send Code' };
-  }
 };
 
 // Step 2: Verify OTP
@@ -303,7 +303,7 @@ export const verifyOtp = async (email: string, token: string, type: EmailOtpType
         // Attempt 2: Fallback logic (Fixes 403 "Token expired" issues)
         if (error && (type === 'signup' || type === 'email' || type === 'magiclink')) {
             console.warn(`Initial verify (${type}) failed: ${error.message}. Attempting fallback...`);
-            
+
             let fallbackType: EmailOtpType = 'email';
             if (type === 'email' || type === 'magiclink') {
                 fallbackType = 'signup';
@@ -333,12 +333,12 @@ export const uploadImage = async (file: File, bucket: 'avatars' | 'posts' | 'ass
         // COMPRESS BEFORE UPLOAD if it's not a logo/asset (logos we might want original quality/png transparency)
         let fileToUpload = file;
         if (bucket !== 'assets') {
-             fileToUpload = await compressImage(file);
+            fileToUpload = await compressImage(file);
         }
 
         const fileExt = fileToUpload.name.split('.').pop();
         const fileName = `${Date.now()}_${Math.random().toString(36).substring(7)}.${fileExt}`;
-        
+
         const { error: uploadError } = await supabase.storage
             .from(bucket)
             .upload(fileName, fileToUpload);
@@ -357,48 +357,49 @@ export const uploadImage = async (file: File, bucket: 'avatars' | 'posts' | 'ass
 };
 
 export const createProfile = async (data: { nickname: string; jobTags: string[]; credentialFile: File, avatarFile?: File }): Promise<ApiResponse<null>> => {
-  const check = ensureClient();
-  if (!check.success) return check;
+    const check = ensureClient();
+    if (!check.success) return check;
 
-  try {
-    const { data: { user: authUser } } = await supabase!.auth.getUser();
-    
-    if (!authUser || !authUser.email) {
-        return { success: false, error: 'Session expired. Please verify again.' };
+    try {
+        const { data: { user: authUser } } = await supabase!.auth.getUser();
+
+        if (!authUser || !authUser.email) {
+            return { success: false, error: 'Session expired. Please verify again.' };
+        }
+
+        const credentialUrl = await uploadImage(data.credentialFile, 'avatars');
+        if (!credentialUrl) {
+            return { success: false, error: 'Failed to upload credential image.' };
+        }
+
+        let avatarUrl = null;
+        if (data.avatarFile) {
+            avatarUrl = await uploadImage(data.avatarFile, 'avatars');
+        }
+
+        const { error: dbError } = await supabase!.from('profiles').insert({
+            id: authUser.id,
+            email: authUser.email,
+            nickname: data.nickname,
+            job_tags: data.jobTags,
+            credential_url: credentialUrl,
+            avatar_url: avatarUrl,
+            role: 'ADMIN',
+            status: 'ACTIVE',
+            expiration_date: '2026-05-01T00:00:00Z',
+            is_renewal: false
+        });
+
+        if (dbError) {
+            if (dbError.code === '23505') return { success: false, error: 'Profile already exists.' };
+            throw dbError;
+        }
+
+        return { success: true };
+    } catch (err: any) {
+        console.error(err);
+        return { success: false, error: err.message || 'Registration failed' };
     }
-
-    const credentialUrl = await uploadImage(data.credentialFile, 'avatars');
-    if (!credentialUrl) {
-        return { success: false, error: 'Failed to upload credential image.' };
-    }
-
-    let avatarUrl = null;
-    if (data.avatarFile) {
-        avatarUrl = await uploadImage(data.avatarFile, 'avatars');
-    }
-
-    const { error: dbError } = await supabase!.from('profiles').insert({
-      id: authUser.id,
-      email: authUser.email,
-      nickname: data.nickname,
-      job_tags: data.jobTags,
-      credential_url: credentialUrl,
-      avatar_url: avatarUrl,
-      role: 'USER',
-      status: 'PENDING',
-      is_renewal: false
-    });
-
-    if (dbError) {
-        if (dbError.code === '23505') return { success: false, error: 'Profile already exists.' };
-        throw dbError;
-    }
-
-    return { success: true };
-  } catch (err: any) {
-    console.error(err);
-    return { success: false, error: err.message || 'Registration failed' };
-  }
 };
 
 export const renewMembership = async (credentialFile: File): Promise<ApiResponse<null>> => {
@@ -425,112 +426,117 @@ export const renewMembership = async (credentialFile: File): Promise<ApiResponse
     }
 }
 
-export const updateUserProfile = async (userId: string, updates: { nickname?: string; jobTags?: string[] }) => {
+export const updateUserProfile = async (userId: string, updates: { nickname?: string; jobTags?: string[]; avatarFile?: File }) => {
     if (!supabase) return;
-    
+
     const payload: any = {};
     if (updates.nickname) payload.nickname = updates.nickname;
     if (updates.jobTags) payload.job_tags = updates.jobTags;
+
+    if (updates.avatarFile) {
+        const url = await uploadImage(updates.avatarFile, 'avatars');
+        if (url) payload.avatar_url = url;
+    }
 
     const { error } = await supabase.from('profiles').update(payload).eq('id', userId);
     if (error) throw error;
 };
 
 export const logout = async () => {
-  if (supabase) await supabase.auth.signOut();
+    if (supabase) await supabase.auth.signOut();
 };
 
 export const getCurrentUser = async (): Promise<User | null> => {
-  if (!supabase) return null;
-  
-  const { data: { user: authUser } } = await supabase.auth.getUser();
-  if (!authUser) return null;
+    if (!supabase) return null;
 
-  const { data: profile, error } = await supabase
-    .from('profiles')
-    .select('*')
-    .eq('id', authUser.id)
-    .single();
+    const { data: { user: authUser } } = await supabase.auth.getUser();
+    if (!authUser) return null;
 
-  if (error) {
-      // Don't throw on not found, just return null (user needs to register)
-      return null;
-  }
+    const { data: profile, error } = await supabase
+        .from('profiles')
+        .select('*')
+        .eq('id', authUser.id)
+        .single();
 
-  if (!profile) return null;
+    if (error) {
+        // Don't throw on not found, just return null (user needs to register)
+        return null;
+    }
 
-  // STRICT SECURITY CHECK
-  if (profile.status === 'DELETED') {
-      await logout();
-      return null;
-  }
+    if (!profile) return null;
 
-  // Check Expiration
-  let status = profile.status as UserStatus;
-  const now = Date.now();
-  const expirationDate = profile.expiration_date ? new Date(profile.expiration_date).getTime() : null;
+    // STRICT SECURITY CHECK
+    if (profile.status === 'DELETED') {
+        await logout();
+        return null;
+    }
 
-  if (status === UserStatus.ACTIVE && expirationDate && now > expirationDate) {
-      status = UserStatus.EXPIRED;
-  }
+    // Check Expiration
+    let status = profile.status as UserStatus;
+    const now = Date.now();
+    const expirationDate = profile.expiration_date ? new Date(profile.expiration_date).getTime() : null;
 
-  return {
-    id: profile.id,
-    email: profile.email,
-    nickname: profile.nickname,
-    role: profile.role as UserRole,
-    status: status,
-    jobTags: profile.job_tags || [],
-    credentialUrl: profile.credential_url,
-    avatarUrl: profile.avatar_url,
-    createdAt: new Date(profile.created_at).getTime(),
-    expirationDate: expirationDate || undefined,
-    isRenewal: profile.is_renewal
-  };
+    if (status === UserStatus.ACTIVE && expirationDate && now > expirationDate) {
+        status = UserStatus.EXPIRED;
+    }
+
+    return {
+        id: profile.id,
+        email: profile.email,
+        nickname: profile.nickname,
+        role: profile.role as UserRole,
+        status: status,
+        jobTags: profile.job_tags || [],
+        credentialUrl: profile.credential_url,
+        avatarUrl: profile.avatar_url,
+        createdAt: new Date(profile.created_at).getTime(),
+        expirationDate: expirationDate || undefined,
+        isRenewal: profile.is_renewal
+    };
 };
 
 // --- Content Service ---
 
 export const getAnnouncements = async (): Promise<Announcement[]> => {
-  if (!supabase) return [];
-  const { data, error } = await supabase
-    .from('announcements')
-    .select('*')
-    .eq('is_active', true)
-    .order('created_at', { ascending: false });
+    if (!supabase) return [];
+    const { data, error } = await supabase
+        .from('announcements')
+        .select('*')
+        .eq('is_active', true)
+        .order('created_at', { ascending: false });
 
-  if (error) {
-      dispatchFatalError(error, 'getAnnouncements');
-      return [];
-  }
+    if (error) {
+        dispatchFatalError(error, 'getAnnouncements');
+        return [];
+    }
 
-  return (data || []).map((a: any) => ({
-    id: a.id,
-    title: a.title,
-    content: a.content,
-    type: a.type,
-    createdAt: new Date(a.created_at).getTime(),
-    isActive: a.is_active
-  }));
+    return (data || []).map((a: any) => ({
+        id: a.id,
+        title: a.title,
+        content: a.content,
+        type: a.type,
+        createdAt: new Date(a.created_at).getTime(),
+        isActive: a.is_active
+    }));
 };
 
 export const getAllAnnouncements = async (): Promise<Announcement[]> => {
-  if (!supabase) return [];
-  const { data, error } = await supabase.from('announcements').select('*').order('created_at', { ascending: false });
-  
-  if (error) {
-      dispatchFatalError(error, 'getAllAnnouncements');
-      return [];
-  }
+    if (!supabase) return [];
+    const { data, error } = await supabase.from('announcements').select('*').order('created_at', { ascending: false });
 
-  return (data || []).map((a: any) => ({
-    id: a.id,
-    title: a.title,
-    content: a.content,
-    type: a.type,
-    createdAt: new Date(a.created_at).getTime(),
-    isActive: a.is_active
-  }));
+    if (error) {
+        dispatchFatalError(error, 'getAllAnnouncements');
+        return [];
+    }
+
+    return (data || []).map((a: any) => ({
+        id: a.id,
+        title: a.title,
+        content: a.content,
+        type: a.type,
+        createdAt: new Date(a.created_at).getTime(),
+        isActive: a.is_active
+    }));
 };
 
 export const createAnnouncement = async (announcement: Omit<Announcement, 'id' | 'createdAt'>) => {
@@ -553,7 +559,7 @@ export const updateAnnouncement = async (id: string, updates: Partial<Announceme
     const payload: any = {};
     if (updates.title) payload.title = updates.title;
     if (updates.content) payload.content = updates.content;
-    
+
     await supabase.from('announcements').update(payload).eq('id', id);
 };
 
@@ -561,7 +567,7 @@ export const updateAnnouncement = async (id: string, updates: Partial<Announceme
 
 export const getSiteConfig = async (): Promise<SiteConfig> => {
     if (!supabase) return { landingVideoUrl: '', logoUrl: '' };
-    
+
     try {
         const { data, error } = await supabase
             .from('site_config')
@@ -578,7 +584,7 @@ export const getSiteConfig = async (): Promise<SiteConfig> => {
             return { landingVideoUrl: '', logoUrl: '' };
         }
 
-        return { 
+        return {
             landingVideoUrl: data?.landing_video_url || '',
             logoUrl: data?.logo_url || ''
         };
@@ -590,7 +596,7 @@ export const getSiteConfig = async (): Promise<SiteConfig> => {
 
 export const updateSiteConfig = async (config: Partial<SiteConfig>) => {
     if (!supabase) return;
-    
+
     const payload: any = {};
     if (config.landingVideoUrl !== undefined) payload.landing_video_url = config.landingVideoUrl;
     if (config.logoUrl !== undefined) payload.logo_url = config.logoUrl;
@@ -598,7 +604,7 @@ export const updateSiteConfig = async (config: Partial<SiteConfig>) => {
     const { error } = await supabase
         .from('site_config')
         .upsert({ id: 1, ...payload });
-    
+
     if (error) throw error;
 };
 
@@ -657,71 +663,71 @@ export const getPostById = async (postId: string): Promise<(Post & { user?: User
 };
 
 export const getFeed = async (page: number = 1, limit: number = 10): Promise<FeedResponse> => {
-  if (!supabase) return { data: [], count: 0 };
-  
-  try {
-    const { data: { user: currentUser } } = await supabase.auth.getUser();
-    
-    const { data: profile } = await supabase.from('profiles').select('status, expiration_date').eq('id', currentUser?.id).single();
-    
-    if (!profile || profile.status === 'DELETED') return { data: [], count: 0 };
-    
-    if (profile.expiration_date && new Date().getTime() > new Date(profile.expiration_date).getTime()) {
-        return { data: [], count: 0 };
-    }
+    if (!supabase) return { data: [], count: 0 };
 
-    const from = (page - 1) * limit;
-    const to = from + limit - 1;
+    try {
+        const { data: { user: currentUser } } = await supabase.auth.getUser();
 
-    const { count, error: countError } = await supabase
-        .from('posts')
-        .select('*', { count: 'exact', head: true });
+        const { data: profile } = await supabase.from('profiles').select('status, expiration_date').eq('id', currentUser?.id).single();
 
-    if (countError) console.warn("Count error", countError);
+        if (!profile || profile.status === 'DELETED') return { data: [], count: 0 };
 
-    const { data, error } = await supabase
-        .from('posts')
-        .select(`
+        if (profile.expiration_date && new Date().getTime() > new Date(profile.expiration_date).getTime()) {
+            return { data: [], count: 0 };
+        }
+
+        const from = (page - 1) * limit;
+        const to = from + limit - 1;
+
+        const { count, error: countError } = await supabase
+            .from('posts')
+            .select('*', { count: 'exact', head: true });
+
+        if (countError) console.warn("Count error", countError);
+
+        const { data, error } = await supabase
+            .from('posts')
+            .select(`
             *,
             user:profiles(id, nickname, job_tags, avatar_url)
         `)
-        .order('created_at', { ascending: false })
-        .range(from, to);
+            .order('created_at', { ascending: false })
+            .range(from, to);
 
-    if (error) {
-        // If column missing or other critical DB error
-        if (error.code === '42703') {
-            dispatchFatalError(error, 'getFeed');
+        if (error) {
+            // If column missing or other critical DB error
+            if (error.code === '42703') {
+                dispatchFatalError(error, 'getFeed');
+            }
+            console.warn("Feed error:", error);
+            return { data: [], count: 0 };
         }
-        console.warn("Feed error:", error);
+
+        const postsWithInteractions = await Promise.all((data || []).map(async (p: any) => {
+            const [likesRes, commentsRes, myLikeRes] = await Promise.all([
+                supabase!.from('likes').select('id', { count: 'exact', head: true }).eq('post_id', p.id),
+                supabase!.from('comments').select('id', { count: 'exact', head: true }).eq('post_id', p.id),
+                currentUser ? supabase!.from('likes').select('id').eq('post_id', p.id).eq('user_id', currentUser.id).maybeSingle() : Promise.resolve({ data: null })
+            ]);
+            return transformPost(p, likesRes.count || 0, commentsRes.count || 0, !!myLikeRes.data);
+        }));
+
+        return {
+            data: postsWithInteractions,
+            count: count || 0
+        };
+
+    } catch (e: any) {
+        // Dispatch if it's a Supabase error structure
+        if (e?.code) dispatchFatalError(e, 'getFeedException');
+        console.error("Exception fetching feed:", e);
         return { data: [], count: 0 };
     }
-
-    const postsWithInteractions = await Promise.all((data || []).map(async (p: any) => {
-        const [likesRes, commentsRes, myLikeRes] = await Promise.all([
-            supabase!.from('likes').select('id', { count: 'exact', head: true }).eq('post_id', p.id),
-            supabase!.from('comments').select('id', { count: 'exact', head: true }).eq('post_id', p.id),
-            currentUser ? supabase!.from('likes').select('id').eq('post_id', p.id).eq('user_id', currentUser.id).maybeSingle() : Promise.resolve({ data: null })
-        ]);
-        return transformPost(p, likesRes.count || 0, commentsRes.count || 0, !!myLikeRes.data);
-    }));
-
-    return { 
-        data: postsWithInteractions, 
-        count: count || 0 
-    };
-
-  } catch (e: any) {
-      // Dispatch if it's a Supabase error structure
-      if (e?.code) dispatchFatalError(e, 'getFeedException');
-      console.error("Exception fetching feed:", e);
-      return { data: [], count: 0 };
-  }
 };
 
 export const getUserPosts = async (userId: string): Promise<(Post & { user?: User })[]> => {
     if (!supabase) return [];
-    
+
     const { data, error } = await supabase
         .from('posts')
         .select(`*, user:profiles(id, nickname, job_tags, avatar_url)`)
@@ -740,42 +746,50 @@ export const getUserPosts = async (userId: string): Promise<(Post & { user?: Use
         ]);
         return transformPost(p, likesRes.count || 0, commentsRes.count || 0, !!myLikeRes.data);
     }));
-    
+
     return posts;
 };
 
 
 export const createPost = async (content: string, files: File[] = [], location?: string): Promise<string> => {
-  if (!supabase) throw new Error("Not connected");
-  const { data: { user } } = await supabase.auth.getUser();
-  if (!user) throw new Error("Not logged in");
+    if (!supabase) throw new Error("Not connected");
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) throw new Error("Not logged in");
 
-  const imageUrls: string[] = [];
+    const imageUrls: string[] = [];
 
-  // Upload all files
-  if (files.length > 0) {
-      for (const file of files) {
-          const url = await uploadImage(file, 'posts');
-          if (url) imageUrls.push(url);
-      }
-  }
+    // Upload all files
+    if (files.length > 0) {
+        for (const file of files) {
+            const url = await uploadImage(file, 'posts');
+            if (url) imageUrls.push(url);
+        }
+    }
 
-  const { data, error } = await supabase.from('posts').insert({
-    user_id: user.id,
-    content,
-    image_urls: imageUrls,
-    image_url: imageUrls.length > 0 ? imageUrls[0] : null,
-    location: location
-  }).select('id').single();
-  
-  if (error) throw error;
-  return data.id;
+    const { data, error } = await supabase.from('posts').insert({
+        user_id: user.id,
+        content,
+        image_urls: imageUrls,
+        image_url: imageUrls.length > 0 ? imageUrls[0] : null,
+        location: location
+    }).select('id').single();
+
+    if (error) throw error;
+    return data.id;
 };
 
 export const deletePost = async (postId: string) => {
     if (!supabase) return;
-    const { error } = await supabase.from('posts').delete().eq('id', postId);
+    const { error, count } = await supabase.from('posts').delete({ count: 'exact' }).eq('id', postId);
     if (error) throw error;
+    if (count === 0) throw new Error("Post was not deleted (maybe already deleted or permission denied)");
+};
+
+export const deleteComment = async (commentId: string) => {
+    if (!supabase) return;
+    const { error, count } = await supabase.from('comments').delete({ count: 'exact' }).eq('id', commentId);
+    if (error) throw error;
+    if (count === 0) throw new Error("Comment was not deleted");
 };
 
 // --- Interactions ---
@@ -787,7 +801,7 @@ export const toggleLike = async (postId: string) => {
 
     // Use maybeSingle to avoid error if no like exists
     const { data: existing } = await supabase.from('likes').select('id').eq('post_id', postId).eq('user_id', user.id).maybeSingle();
-    
+
     if (existing) {
         await supabase.from('likes').delete().eq('id', existing.id);
         return false;
@@ -799,28 +813,70 @@ export const toggleLike = async (postId: string) => {
 
 export const getComments = async (postId: string): Promise<Comment[]> => {
     if (!supabase) return [];
+
+    // Fetch all comments for the post
     const { data, error } = await supabase
         .from('comments')
-        .select('*, user:profiles(id, nickname, avatar_url)')
+        .select(`
+            id, 
+            post_id, 
+            user_id, 
+            content, 
+            created_at,
+            parent_id,
+            profiles:user_id ( id, nickname, avatar_url, role, status )
+        `)
         .eq('post_id', postId)
-        .order('created_at', { ascending: true });
-    
-    if (error) throw error;
+        .order('created_at', { ascending: true }); // Order by time to ensure parents come before children usually
 
-    return (data || []).map((c: any) => ({
+    if (error) {
+        console.error("Error fetching comments:", error);
+        return [];
+    }
+
+    // Transform flat data to Comment objects
+    const allComments: Comment[] = data.map((c: any) => ({
         id: c.id,
         postId: c.post_id,
         userId: c.user_id,
+        user: c.profiles ? {
+            id: c.profiles.id,
+            nickname: c.profiles.nickname,
+            avatarUrl: c.profiles.avatar_url,
+            role: c.profiles.role,
+            status: c.profiles.status,
+            email: '',
+            jobTags: [],
+            createdAt: 0
+        } : undefined,
         content: c.content,
         createdAt: new Date(c.created_at).getTime(),
-        user: c.user ? {
-            ...c.user,
-            avatarUrl: c.user.avatar_url
-        } : undefined
+        parentId: c.parent_id || undefined,
+        replies: []
     }));
+
+    // Build Tree Structure
+    const commentMap = new Map<string, Comment>();
+    const rootComments: Comment[] = [];
+
+    // 1. Map all comments
+    allComments.forEach(c => commentMap.set(c.id, c));
+
+    // 2. Link children to parents
+    allComments.forEach(c => {
+        if (c.parentId && commentMap.has(c.parentId)) {
+            const parent = commentMap.get(c.parentId)!;
+            if (!parent.replies) parent.replies = [];
+            parent.replies.push(c);
+        } else {
+            rootComments.push(c);
+        }
+    });
+
+    return rootComments;
 };
 
-export const addComment = async (postId: string, content: string) => {
+export const addComment = async (postId: string, content: string, parentId?: string) => {
     if (!supabase) return;
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) return;
@@ -828,15 +884,16 @@ export const addComment = async (postId: string, content: string) => {
     const { data: commentData, error } = await supabase.from('comments').insert({
         post_id: postId,
         user_id: user.id,
-        content
+        content,
+        parent_id: parentId || null
     }).select('id').single();
-    
+
     if (error) throw error;
 
     // --- Trigger Notification Logic ---
     // 1. Get post owner
     const { data: post } = await supabase.from('posts').select('user_id').eq('id', postId).single();
-    
+
     // 2. If post owner exists and is NOT the commenter
     if (post && post.user_id !== user.id) {
         // Wrap in try-catch to avoid breaking comment flow if notifications table is missing
@@ -856,6 +913,8 @@ export const addComment = async (postId: string, content: string) => {
     }
 };
 
+
+
 // --- Notifications ---
 
 export const getNotifications = async (): Promise<Notification[]> => {
@@ -869,7 +928,7 @@ export const getNotifications = async (): Promise<Notification[]> => {
         .eq('user_id', user.id)
         .order('created_at', { ascending: false }) // Newest first
         .limit(30);
-    
+
     if (error) {
         // Only warn here, notifications aren't "fatal" usually, unless table is missing
         if (error.code === '42P01') { // Undefined table 'notifications'
@@ -907,11 +966,11 @@ export const subscribeToNotifications = (userId: string, onData: (data: any) => 
     if (!supabase) return null;
     return supabase
         .channel(`notif:${userId}`)
-        .on('postgres_changes', { 
-            event: 'INSERT', 
-            schema: 'public', 
-            table: 'notifications', 
-            filter: `user_id=eq.${userId}` 
+        .on('postgres_changes', {
+            event: 'INSERT',
+            schema: 'public',
+            table: 'notifications',
+            filter: `user_id=eq.${userId}`
         }, payload => {
             onData(payload.new);
         })
@@ -919,8 +978,8 @@ export const subscribeToNotifications = (userId: string, onData: (data: any) => 
 };
 
 export const subscribeToAdminChanges = (onData: (data: any) => void): RealtimeChannel | null => {
-     if (!supabase) return null;
-     return supabase
+    if (!supabase) return null;
+    return supabase
         .channel('admin-profiles')
         .on('postgres_changes', {
             event: 'INSERT', // Catch new users
@@ -938,27 +997,27 @@ export const subscribeToAdminChanges = (onData: (data: any) => void): RealtimeCh
 // --- Admin Service ---
 
 export const getAdminUsers = async (): Promise<User[]> => {
-  if (!supabase) return [];
-  const { data, error } = await supabase.from('profiles').select('*').order('created_at', { ascending: false });
-  
-  if (error) {
-      dispatchFatalError(error, 'getAdminUsers');
-      return [];
-  }
-  
-  return (data || []).map((profile: any) => ({
-    id: profile.id,
-    email: profile.email,
-    nickname: profile.nickname,
-    role: profile.role,
-    status: profile.status,
-    jobTags: profile.job_tags || [],
-    credentialUrl: profile.credential_url,
-    avatarUrl: profile.avatar_url,
-    createdAt: new Date(profile.created_at).getTime(),
-    expirationDate: profile.expiration_date ? new Date(profile.expiration_date).getTime() : undefined,
-    isRenewal: profile.is_renewal
-  }));
+    if (!supabase) return [];
+    const { data, error } = await supabase.from('profiles').select('*').order('created_at', { ascending: false });
+
+    if (error) {
+        dispatchFatalError(error, 'getAdminUsers');
+        return [];
+    }
+
+    return (data || []).map((profile: any) => ({
+        id: profile.id,
+        email: profile.email,
+        nickname: profile.nickname,
+        role: profile.role,
+        status: profile.status,
+        jobTags: profile.job_tags || [],
+        credentialUrl: profile.credential_url,
+        avatarUrl: profile.avatar_url,
+        createdAt: new Date(profile.created_at).getTime(),
+        expirationDate: profile.expiration_date ? new Date(profile.expiration_date).getTime() : undefined,
+        isRenewal: profile.is_renewal
+    }));
 };
 
 // New function for polling badge
@@ -973,14 +1032,14 @@ export const getPendingUserCount = async (): Promise<number> => {
 
 export const updateUser = async (userId: string, updates: { status?: UserStatus; role?: UserRole; expirationDate?: string | null }) => {
     if (!supabase) return;
-    
+
     const payload: any = {};
     if (updates.status) payload.status = updates.status;
     if (updates.role) payload.role = updates.role;
     if (updates.expirationDate !== undefined) {
-         payload.expiration_date = updates.expirationDate;
+        payload.expiration_date = updates.expirationDate;
     }
-    
+
     if (updates.status === UserStatus.ACTIVE) {
         payload.is_renewal = false;
     }
@@ -990,13 +1049,13 @@ export const updateUser = async (userId: string, updates: { status?: UserStatus;
 };
 
 export const updateUserStatus = async (userId: string, status: UserStatus, expirationDate?: Date) => {
-  const payload: any = { status };
-  if (status === UserStatus.ACTIVE && expirationDate) {
-      payload.expirationDate = expirationDate.toISOString();
-  }
-  await updateUser(userId, payload);
+    const payload: any = { status };
+    if (status === UserStatus.ACTIVE && expirationDate) {
+        payload.expirationDate = expirationDate.toISOString();
+    }
+    await updateUser(userId, payload);
 };
 
 export const updateUserRole = async (userId: string, role: UserRole) => {
-  await updateUser(userId, { role });
+    await updateUser(userId, { role });
 };

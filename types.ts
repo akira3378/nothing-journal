@@ -48,6 +48,8 @@ export interface Comment {
   user?: User;
   content: string;
   createdAt: number;
+  parentId?: string; // New: For nested replies
+  replies?: Comment[]; // New: For UI nesting
 }
 
 export interface Post {
@@ -63,21 +65,21 @@ export interface Post {
 }
 
 export enum NotificationType {
-    COMMENT = 'COMMENT',
-    SYSTEM = 'SYSTEM'
+  COMMENT = 'COMMENT',
+  SYSTEM = 'SYSTEM'
 }
 
 export interface Notification {
-    id: string;
-    userId: string; // Receiver
-    triggerUserId?: string; // Sender (e.g. commenter)
-    triggerUser?: Partial<User>; // Updated to allow Partial User
-    type: NotificationType;
-    content: string;
-    relatedPostId?: string;
-    relatedCommentId?: string;
-    isRead: boolean;
-    createdAt: number;
+  id: string;
+  userId: string; // Receiver
+  triggerUserId?: string; // Sender (e.g. commenter)
+  triggerUser?: Partial<User>; // Updated to allow Partial User
+  type: NotificationType;
+  content: string;
+  relatedPostId?: string;
+  relatedCommentId?: string;
+  isRead: boolean;
+  createdAt: number;
 }
 
 export interface AuthState {

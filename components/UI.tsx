@@ -1,12 +1,5 @@
-import React, { createContext, useContext, useState, useRef, useEffect } from 'react';
-import { motion, AnimatePresence, HTMLMotionProps } from 'framer-motion';
-import { clsx, type ClassValue } from 'clsx';
-import { twMerge } from 'tailwind-merge';
 
-// --- Utils ---
-export function cn(...inputs: ClassValue[]) {
-    return twMerge(clsx(inputs));
-}
+import React, { createContext, useContext, useState, useRef, useEffect } from 'react';
 
 // --- Types ---
 type Variant = 'primary' | 'secondary' | 'danger' | 'ghost';
@@ -130,12 +123,6 @@ export const Icons = {
             <path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"></path>
             <path d="M13.73 21a2 2 0 0 1-3.46 0"></path>
         </svg>
-    ),
-    ArrowRight: ({ className }: { className?: string }) => (
-        <svg className={className} width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-            <line x1="5" y1="12" x2="19" y2="12"></line>
-            <polyline points="12 5 19 12 12 19"></polyline>
-        </svg>
     )
 };
 
@@ -154,7 +141,7 @@ export const Spinner: React.FC<{ size?: 'sm' | 'md' | 'lg', className?: string }
 };
 
 // --- Button ---
-interface ButtonProps extends HTMLMotionProps<"button"> {
+interface ButtonProps extends React.ButtonHTMLAttributes<HTMLButtonElement> {
     variant?: Variant;
     size?: Size;
     isLoading?: boolean;
@@ -171,10 +158,10 @@ export const Button: React.FC<ButtonProps> = ({
     disabled,
     ...props
 }) => {
-    const baseStyle = "font-mono uppercase tracking-wider font-bold flex items-center justify-center gap-2 rounded-sm focus:outline-none disabled:opacity-50 disabled:cursor-not-allowed relative overflow-hidden";
+    const baseStyle = "font-mono uppercase tracking-wider font-bold transition-all duration-200 flex items-center justify-center gap-2 rounded-sm focus:outline-none disabled:opacity-50 disabled:cursor-not-allowed active:scale-[0.98]";
 
     const variants = {
-        primary: "bg-black dark:bg-white text-white dark:text-black border border-transparent shadow-sm",
+        primary: "bg-black dark:bg-white text-white dark:text-black hover:bg-zinc-800 dark:hover:bg-zinc-200 border border-transparent shadow-sm",
         secondary: "bg-white dark:bg-black text-black dark:text-white border border-zinc-300 dark:border-zinc-700 hover:bg-zinc-50 dark:hover:bg-zinc-900",
         danger: "bg-red-50 dark:bg-red-900/20 text-red-600 dark:text-red-400 border border-red-200 dark:border-red-900 hover:bg-red-100 dark:hover:bg-red-900/40",
         ghost: "bg-transparent text-zinc-500 hover:text-black dark:hover:text-white hover:bg-zinc-100 dark:hover:bg-zinc-800"
@@ -187,43 +174,15 @@ export const Button: React.FC<ButtonProps> = ({
     };
 
     return (
-        <motion.button
-            className={cn(baseStyle, variants[variant], sizes[size], className)}
+        <button
+            className={`${baseStyle} ${variants[variant]} ${sizes[size]} ${className}`}
             disabled={disabled || isLoading}
-            whileHover={{ scale: 1.02 }}
-            whileTap={{ scale: 0.98 }}
-            transition={{ type: "spring", stiffness: 400, damping: 17 }}
             {...props}
         >
             {isLoading && <Spinner size="sm" className={variant === 'primary' ? 'border-white dark:border-black' : ''} />}
             {!isLoading && leftIcon}
             {children}
-        </motion.button>
-    );
-};
-
-// --- Card ---
-interface CardProps extends HTMLMotionProps<"div"> {
-    children: React.ReactNode;
-    noPadding?: boolean;
-}
-
-export const Card: React.FC<CardProps> = ({ children, className, noPadding = false, ...props }) => {
-    return (
-        <motion.div
-            initial={{ opacity: 0, y: 20 }}
-            whileInView={{ opacity: 1, y: 0 }}
-            viewport={{ once: true }}
-            transition={{ duration: 0.5 }}
-            className={cn(
-                "bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-sm shadow-sm overflow-hidden",
-                noPadding ? "" : "p-6",
-                className
-            )}
-            {...props}
-        >
-            {children}
-        </motion.div>
+        </button>
     );
 };
 
@@ -284,29 +243,21 @@ export const CustomSelect: React.FC<SelectProps> = ({ value, onChange, options, 
                 <Icons.ChevronDown className={`w-4 h-4 transition-transform duration-200 ${isOpen ? 'rotate-180' : ''}`} />
             </button>
 
-            <AnimatePresence>
-                {isOpen && (
-                    <motion.div
-                        initial={{ opacity: 0, y: -10 }}
-                        animate={{ opacity: 1, y: 0 }}
-                        exit={{ opacity: 0, y: -10 }}
-                        transition={{ duration: 0.2 }}
-                        className="absolute top-full left-0 w-full mt-1 bg-white dark:bg-black border border-black dark:border-white shadow-xl z-50 max-h-48 overflow-y-auto"
-                    >
-                        {options.map((option) => (
-                            <button
-                                key={option.value}
-                                type="button"
-                                onClick={() => { onChange(option.value); setIsOpen(false); }}
-                                className={`w-full text-left px-4 py-2 text-sm font-bold tracking-wide hover:bg-zinc-100 dark:hover:bg-zinc-900 transition-colors flex items-center justify-between ${option.value === value ? 'bg-zinc-50 dark:bg-zinc-900 text-black dark:text-white' : 'text-zinc-500 dark:text-zinc-400'}`}
-                            >
-                                {option.label}
-                                {option.value === value && <span className="w-1.5 h-1.5 bg-black dark:bg-white rounded-full"></span>}
-                            </button>
-                        ))}
-                    </motion.div>
-                )}
-            </AnimatePresence>
+            {isOpen && (
+                <div className="absolute top-full left-0 w-full mt-1 bg-white dark:bg-black border border-black dark:border-white shadow-xl z-50 max-h-48 overflow-y-auto animate-fadeIn">
+                    {options.map((option) => (
+                        <button
+                            key={option.value}
+                            type="button"
+                            onClick={() => { onChange(option.value); setIsOpen(false); }}
+                            className={`w-full text-left px-4 py-2 text-sm font-bold tracking-wide hover:bg-zinc-100 dark:hover:bg-zinc-900 transition-colors flex items-center justify-between ${option.value === value ? 'bg-zinc-50 dark:bg-zinc-900 text-black dark:text-white' : 'text-zinc-500 dark:text-zinc-400'}`}
+                        >
+                            {option.label}
+                            {option.value === value && <span className="w-1.5 h-1.5 bg-black dark:bg-white rounded-full"></span>}
+                        </button>
+                    ))}
+                </div>
+            )}
         </div>
     );
 };
@@ -343,10 +294,11 @@ interface Toast {
     message: string;
     type: 'success' | 'error' | 'info';
     duration: number; // 0 = persistent
+    onClick?: () => void;
 }
 
 interface ToastContextType {
-    addToast: (message: string, type?: 'success' | 'error' | 'info', duration?: number) => void;
+    addToast: (message: string, type?: 'success' | 'error' | 'info', duration?: number, onClick?: () => void) => void;
     removeToast: (id: string) => void;
 }
 
@@ -355,9 +307,9 @@ const ToastContext = createContext<ToastContextType | undefined>(undefined);
 export const ToastProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
     const [toasts, setToasts] = useState<Toast[]>([]);
 
-    const addToast = (message: string, type: 'success' | 'error' | 'info' = 'info', duration: number = 4000) => {
+    const addToast = (message: string, type: 'success' | 'error' | 'info' = 'info', duration: number = 4000, onClick?: () => void) => {
         const id = Math.random().toString(36).substring(7);
-        const newToast = { id, message, type, duration };
+        const newToast = { id, message, type, duration, onClick };
 
         setToasts(prev => [...prev, newToast]);
 
@@ -377,34 +329,36 @@ export const ToastProvider: React.FC<{ children: React.ReactNode }> = ({ childre
         <ToastContext.Provider value={{ addToast, removeToast }}>
             {children}
             <div className="fixed top-4 right-4 z-[200] flex flex-col gap-2 pointer-events-none w-full max-w-xs sm:max-w-sm px-4 sm:px-0">
-                <AnimatePresence>
-                    {toasts.map(toast => (
-                        <motion.div
-                            key={toast.id}
-                            initial={{ opacity: 0, x: 20, scale: 0.9 }}
-                            animate={{ opacity: 1, x: 0, scale: 1 }}
-                            exit={{ opacity: 0, scale: 0.9, transition: { duration: 0.2 } }}
-                            className="pointer-events-auto bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-700 shadow-2xl p-4 rounded-sm flex items-start gap-3 backdrop-blur-md bg-opacity-90 dark:bg-opacity-90 relative group"
-                        >
-                            <div className={`w-2 h-2 rounded-full mt-1.5 flex-shrink-0 ${toast.type === 'success' ? 'bg-green-500' :
-                                    toast.type === 'error' ? 'bg-red-500' : 'bg-blue-500'
-                                }`}></div>
-                            <div className="flex-1 pr-4">
-                                <p className="text-sm font-bold text-black dark:text-white leading-snug">{toast.message}</p>
-                                {toast.duration === 0 && (
-                                    <p className="text-[10px] text-zinc-400 mt-1 uppercase tracking-wider">Realtime Alert</p>
-                                )}
-                            </div>
+                {toasts.map(toast => (
+                    <div
+                        key={toast.id}
+                        onClick={() => {
+                            if (toast.onClick) toast.onClick();
+                            removeToast(toast.id);
+                        }}
+                        className={`animate-fadeIn pointer-events-auto bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-700 shadow-2xl p-4 rounded-sm flex items-start gap-3 backdrop-blur-md bg-opacity-90 dark:bg-opacity-90 relative group ${toast.onClick ? 'cursor-pointer hover:bg-zinc-50 dark:hover:bg-zinc-800 transition-colors' : ''}`}
+                    >
+                        <div className={`w-2 h-2 rounded-full mt-1.5 flex-shrink-0 ${toast.type === 'success' ? 'bg-green-500' :
+                                toast.type === 'error' ? 'bg-red-500' : 'bg-blue-500'
+                            }`}></div>
+                        <div className="flex-1 pr-4">
+                            <p className="text-sm font-bold text-black dark:text-white leading-snug">{toast.message}</p>
+                            {toast.duration === 0 && (
+                                <p className="text-[10px] text-zinc-400 mt-1 uppercase tracking-wider">Realtime Alert</p>
+                            )}
+                        </div>
 
-                            <button
-                                onClick={() => removeToast(toast.id)}
-                                className="text-zinc-400 hover:text-black dark:hover:text-white transition-colors"
-                            >
-                                <Icons.X className="w-4 h-4" />
-                            </button>
-                        </motion.div>
-                    ))}
-                </AnimatePresence>
+                        <button
+                            onClick={(e) => {
+                                e.stopPropagation();
+                                removeToast(toast.id);
+                            }}
+                            className="text-zinc-400 hover:text-black dark:hover:text-white transition-colors"
+                        >
+                            <Icons.X className="w-4 h-4" />
+                        </button>
+                    </div>
+                ))}
             </div>
         </ToastContext.Provider>
     );

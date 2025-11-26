@@ -1,97 +1,89 @@
 <!DOCTYPE html>
 <html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>NOTHING</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Added DotGothic16 Font -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=DotGothic16&family=Inter:wght@400;700&display=swap" rel="stylesheet">
+    
+    <!-- Dynamic SVG Favicon (Dot Matrix N) -->
+    <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='black'><path d='M4 4h4v4H4zM4 10h4v4H4zM4 16h4v4H4zM10 16h4v4h-4zM16 4h4v4h-4zM16 10h4v4h-4zM16 16h4v4h-4zM10 4h4v4h-4z'/></svg>" type="image/svg+xml">
 
-<head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>NOTHING</title>
-  <script src="https://cdn.tailwindcss.com"></script>
-  <!-- Added DotGothic16 Font -->
-  <link rel="preconnect" href="https://fonts.googleapis.com">
-  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=DotGothic16&family=Inter:wght@400;700&display=swap"
-    rel="stylesheet">
-
-  <!-- Dynamic SVG Favicon (Dot Matrix N) -->
-  <link rel="icon"
-    href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='black'><path d='M4 4h4v4H4zM4 10h4v4H4zM4 16h4v4H4zM10 16h4v4h-4zM16 4h4v4h-4zM16 10h4v4h-4zM16 16h4v4h-4zM10 4h4v4h-4z'/></svg>"
-    type="image/svg+xml">
-
-  <script>
-    tailwind.config = {
-      darkMode: 'class',
-      theme: {
-        extend: {
-          colors: {
-            nothing: {
-              black: '#0a0a0a', // Slightly lighter than pure black for depth
-              dark: '#171717',
-              gray: '#262626',
-              light: '#e5e5e5',
-              white: '#fafafa', // Slightly off-white for less harshness
-              accent: '#d93025' // A more "Nothing" style red accent
-            }
-          },
-          fontFamily: {
-            sans: ['Inter', 'system-ui', 'sans-serif'],
-            // Added special font
-            dots: ['"DotGothic16"', 'sans-serif'],
-          },
-          animation: {
-            fadeIn: 'fadeIn 0.5s ease-out forwards',
-            slideUp: 'slideUp 0.8s cubic-bezier(0.16, 1, 0.3, 1) forwards',
-            spin: 'spin 1s linear infinite',
-          },
-          keyframes: {
-            fadeIn: {
-              '0%': { opacity: '0' },
-              '100%': { opacity: '1' },
+    <script>
+      tailwind.config = {
+        darkMode: 'class',
+        theme: {
+          extend: {
+            colors: {
+              nothing: {
+                black: '#050505',
+                dark: '#121212',
+                gray: '#262626',
+                light: '#e5e5e5',
+                white: '#ffffff',
+                accent: '#3b82f6' 
+              }
             },
-            slideUp: {
-              '0%': { opacity: '0', transform: 'translateY(20px)' },
-              '100%': { opacity: '1', transform: 'translateY(0)' },
+            fontFamily: {
+              sans: ['Inter', 'system-ui', 'sans-serif'],
+              // Added special font
+              dots: ['"DotGothic16"', 'sans-serif'],
+            },
+            animation: {
+              fadeIn: 'fadeIn 0.5s ease-out forwards',
+              slideUp: 'slideUp 0.8s cubic-bezier(0.16, 1, 0.3, 1) forwards',
+              spin: 'spin 1s linear infinite',
+            },
+            keyframes: {
+              fadeIn: {
+                '0%': { opacity: '0' },
+                '100%': { opacity: '1' },
+              },
+              slideUp: {
+                '0%': { opacity: '0', transform: 'translateY(20px)' },
+                '100%': { opacity: '1', transform: 'translateY(0)' },
+              }
             }
           }
         }
       }
-    }
-  </script>
-  <style>
-    body {
-      /* Default to light mode colors */
-      background-color: #ffffff;
-      color: #000000;
-      -webkit-font-smoothing: antialiased;
-      -moz-osx-font-smoothing: grayscale;
-    }
+    </script>
+    <style>
+      body {
+        /* Default to light mode colors */
+        background-color: #ffffff; 
+        color: #000000;
+        -webkit-font-smoothing: antialiased;
+        -moz-osx-font-smoothing: grayscale;
+      }
+      .dark body {
+        background-color: #050505;
+        color: #ffffff;
+      }
+      
+      /* Grain Texture Overlay Class */
+      .bg-grain {
+          background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noiseFilter'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.65' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noiseFilter)' opacity='0.05'/%3E%3C/svg%3E");
+      }
 
-    .dark body {
-      background-color: #050505;
-      color: #ffffff;
-    }
-
-    /* Grain Texture Overlay Class */
-    .bg-grain {
-      background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noiseFilter'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.65' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noiseFilter)' opacity='0.05'/%3E%3C/svg%3E");
-    }
-
-    ::-webkit-scrollbar {
-      width: 6px;
-    }
-
-    ::-webkit-scrollbar-track {
-      background: transparent;
-    }
-
-    ::-webkit-scrollbar-thumb {
-      background: #555;
-      border-radius: 3px;
-    }
-
-    ::-webkit-scrollbar-thumb:hover {
-      background: #888;
-    }
-  </style>
+      ::-webkit-scrollbar {
+        width: 6px;
+      }
+      ::-webkit-scrollbar-track {
+        background: transparent; 
+      }
+      ::-webkit-scrollbar-thumb {
+        background: #555; 
+        border-radius: 3px;
+      }
+      ::-webkit-scrollbar-thumb:hover {
+        background: #888; 
+      }
+    </style>
   <script type="importmap">
 {
   "imports": {
@@ -101,18 +93,13 @@
     "@supabase/supabase-js": "https://esm.sh/@supabase/supabase-js@2.39.3",
     "react-dom/": "https://aistudiocdn.com/react-dom@^19.2.0/",
     "react/": "https://aistudiocdn.com/react@^19.2.0/",
-    "react-dom": "https://aistudiocdn.com/react-dom@^19.2.0",
-    "framer-motion": "https://esm.sh/framer-motion@11.0.0?deps=react@18.2.0,react-dom@18.2.0",
-    "clsx": "https://esm.sh/clsx@2.1.0",
-    "tailwind-merge": "https://esm.sh/tailwind-merge@2.2.0"
+    "react-dom": "https://aistudiocdn.com/react-dom@^19.2.0"
   }
 }
 </script>
 </head>
-
-<body class="bg-white text-black dark:bg-nothing-black dark:text-white transition-colors duration-300">
-  <div id="root"></div>
-  <script type="module" src="/index.tsx"></script>
-</body>
-
+  <body class="bg-white text-black dark:bg-nothing-black dark:text-white transition-colors duration-300">
+    <div id="root"></div>
+    <script type="module" src="/index.tsx"></script>
+  </body>
 </html>

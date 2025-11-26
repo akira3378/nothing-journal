@@ -1,35 +1,31 @@
 
-
 import React, { useEffect, useRef, useState } from 'react';
 import { User, Post, Comment } from '../types';
-import { getFeed, createPost, deletePost, toggleLike, getComments, addComment } from '../services/mockBackend';
+import { getFeed, createPost, deletePost, toggleLike, getComments, addComment, deleteComment } from '../services/mockBackend';
 import { useApp } from '../utils/i18n';
 import { ImagePreview } from '../components/ImagePreview';
-import { formatLocalTime } from '../utils/formatters';
+import { formatLocalTime, formatRelativeTime } from '../utils/formatters';
 import { Button, Spinner, useToast, Icons } from '../components/UI';
-import { motion, AnimatePresence } from 'framer-motion';
-import { clsx } from 'clsx';
-import { twMerge } from 'tailwind-merge';
 
 interface FeedProps {
     user: User;
 }
 
-const cn = (...inputs: (string | undefined | null | false)[]) => twMerge(clsx(inputs));
-
 const ImageGrid: React.FC<{ imageUrls: string[] }> = ({ imageUrls }) => {
+    const { t } = useApp();
     if (!imageUrls || imageUrls.length === 0) return null;
 
     const count = imageUrls.length;
     let gridClass = '';
 
+    // Adjusted styling to fill width and look cleaner
     if (count === 1) {
         return (
-            <div className="mb-4">
+            <div className="mt-3 mb-1">
                 <ImagePreview
                     src={imageUrls[0]}
-                    alt="Post attachment"
-                    className="rounded-sm w-full h-64 overflow-hidden bg-zinc-100 dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800"
+                    alt={t('post_attachment')}
+                    className="rounded-sm w-full h-auto max-h-[500px] overflow-hidden bg-zinc-100 dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800"
                     thumbnailClassName="w-full h-full object-cover"
                 />
             </div>
@@ -47,17 +43,151 @@ const ImageGrid: React.FC<{ imageUrls: string[] }> = ({ imageUrls }) => {
     }
 
     return (
-        <div className={`grid ${gridClass} gap-1 mb-4 rounded-sm overflow-hidden`}>
+        <div className={`grid ${gridClass} gap-0.5 mt-3 mb-1 rounded-sm overflow-hidden border border-zinc-200 dark:border-zinc-800`}>
             {imageUrls.map((url, index) => (
                 <div key={index} className="aspect-square relative overflow-hidden bg-zinc-100 dark:bg-zinc-800">
                     <ImagePreview
                         src={url}
-                        alt={`Attachment ${index + 1}`}
+                        alt={`${t('attachment')} ${index + 1}`}
                         className="w-full h-full"
                         thumbnailClassName="w-full h-full object-cover hover:scale-105 transition-transform duration-500"
                     />
                 </div>
             ))}
+        </div>
+    );
+};
+
+interface CommentItemProps {
+    comment: Comment;
+    currentUser: User;
+    replyingTo: string | null;
+    setReplyingTo: (id: string | null) => void;
+    replyInput: string;
+    setReplyInput: (val: string) => void;
+    onSend: (e: React.FormEvent, parentId: string) => void;
+    onDelete: (id: string) => void;
+    sendingReply: boolean;
+    depth?: number;
+}
+
+const CommentItem: React.FC<CommentItemProps> = ({
+    comment,
+    currentUser,
+    replyingTo,
+    setReplyingTo,
+    replyInput,
+    setReplyInput,
+    onSend,
+    onDelete,
+    sendingReply,
+    depth = 0
+}) => {
+    const { t } = useApp();
+    const isReplying = replyingTo === comment.id;
+    const hasChildren = comment.replies && comment.replies.length > 0;
+
+    return (
+        <div className={`flex flex-col gap-2 relative ${depth > 0 ? 'mt-3' : ''}`}>
+            {/* Connector Line for root comments only to avoid visual clutter in deep nesting */}
+            {depth === 0 && hasChildren && (
+                <div className="absolute top-8 left-3 bottom-[-12px] w-px bg-zinc-200 dark:bg-zinc-800"></div>
+            )}
+
+            <div className="flex gap-3 group/comment">
+                <div className={`rounded-full bg-white dark:bg-zinc-800 flex items-center justify-center shrink-0 border border-zinc-200 dark:border-zinc-700 shadow-sm z-10 ${depth === 0 ? 'h-8 w-8 text-[10px]' : 'h-6 w-6 text-[8px]'}`}>
+                    {comment.user?.avatarUrl ? (
+                        <img src={comment.user.avatarUrl} className="w-full h-full object-cover rounded-full" />
+                    ) : (
+                        comment.user?.nickname?.charAt(0) || '?'
+                    )}
+                </div>
+
+                <div className="flex-1 min-w-0">
+                    <div className={`bg-white dark:bg-zinc-900 rounded-2xl rounded-tl-none border border-zinc-100 dark:border-zinc-800 shadow-sm ${depth === 0 ? 'p-3' : 'p-2.5'}`}>
+                        <div className="flex items-baseline justify-between mb-1">
+                            <div className="flex items-center gap-2">
+                                <span className="text-xs font-bold text-black dark:text-white truncate max-w-[120px]">
+                                    {comment.user?.nickname || 'User'}
+                                </span>
+                                <span className="text-[10px] text-zinc-400 whitespace-nowrap">
+                                    {formatRelativeTime(comment.createdAt)}
+                                </span>
+                            </div>
+                            {(currentUser.role === 'ADMIN' || currentUser.id === comment.userId) && (
+                                <button
+                                    onClick={() => onDelete(comment.id)}
+                                    className="text-zinc-300 hover:text-red-500 transition-colors opacity-0 group-hover/comment:opacity-100"
+                                >
+                                    <Icons.X className="w-3 h-3" />
+                                </button>
+                            )}
+                        </div>
+                        <p className={`text-zinc-700 dark:text-zinc-300 leading-relaxed break-words ${depth === 0 ? 'text-sm' : 'text-xs'}`}>
+                            {comment.content}
+                        </p>
+                    </div>
+
+                    <div className="flex items-center gap-4 mt-1 ml-2">
+                        <button
+                            onClick={() => setReplyingTo(isReplying ? null : comment.id)}
+                            className={`font-bold text-zinc-400 hover:text-black dark:hover:text-white transition-colors uppercase tracking-wide ${isReplying ? 'text-black dark:text-white' : ''} text-[10px]`}
+                        >
+                            {t('reply')}
+                        </button>
+                    </div>
+                </div>
+            </div>
+
+            {/* Reply Input */}
+            {isReplying && (
+                <div className={`pl-11 animate-fadeIn mt-1 mb-2`}>
+                    <form onSubmit={(e) => onSend(e, comment.id)} className="flex items-center gap-2">
+                        <div className="h-6 w-6 rounded-full bg-zinc-100 dark:bg-zinc-800 flex items-center justify-center text-[8px] shrink-0">
+                            {currentUser.avatarUrl ? (
+                                <img src={currentUser.avatarUrl} className="w-full h-full object-cover rounded-full" />
+                            ) : (
+                                currentUser.nickname?.charAt(0)
+                            )}
+                        </div>
+                        <input
+                            autoFocus
+                            value={replyInput}
+                            onChange={e => setReplyInput(e.target.value)}
+                            placeholder={`${t('reply_to')} ${comment.user?.nickname}...`}
+                            className="flex-1 bg-transparent border-b border-zinc-300 dark:border-zinc-700 px-0 py-1 text-xs outline-none text-black dark:text-white placeholder-zinc-400 focus:border-black dark:focus:border-white transition-colors"
+                        />
+                        <button
+                            type="submit"
+                            disabled={sendingReply || !replyInput.trim()}
+                            className="text-xs font-bold text-black dark:text-white disabled:opacity-30"
+                        >
+                            {sendingReply ? '...' : '↵'}
+                        </button>
+                    </form>
+                </div>
+            )}
+
+            {/* Nested Replies */}
+            {hasChildren && (
+                <div className={`pl-6 sm:pl-8 border-l-2 border-zinc-100 dark:border-zinc-800/50 ml-4`}>
+                    {comment.replies!.map(reply => (
+                        <CommentItem
+                            key={reply.id}
+                            comment={reply}
+                            currentUser={currentUser}
+                            replyingTo={replyingTo}
+                            setReplyingTo={setReplyingTo}
+                            replyInput={replyInput}
+                            setReplyInput={setReplyInput}
+                            onSend={onSend}
+                            onDelete={onDelete}
+                            sendingReply={sendingReply}
+                            depth={depth + 1}
+                        />
+                    ))}
+                </div>
+            )}
         </div>
     );
 };
@@ -72,8 +202,12 @@ export const FeedItem: React.FC<{ post: Post & { user?: User }; currentUser: Use
     const [comments, setComments] = useState<Comment[]>([]);
     const [commentsLoading, setCommentsLoading] = useState(false);
     const [commentsLoaded, setCommentsLoaded] = useState(false);
+
     const [commentInput, setCommentInput] = useState('');
     const [sendingComment, setSendingComment] = useState(false);
+    const [replyingTo, setReplyingTo] = useState<string | null>(null);
+    const [replyInput, setReplyInput] = useState('');
+    const [sendingReply, setSendingReply] = useState(false);
 
     const handleLike = async () => {
         const newVal = !isLiked;
@@ -100,27 +234,50 @@ export const FeedItem: React.FC<{ post: Post & { user?: User }; currentUser: Use
                 setCommentsLoaded(true);
             } catch (e) {
                 console.error(e);
-                addToast("Failed to load comments", "error");
+                addToast(t('failed_load_comments'), "error");
             } finally {
                 setCommentsLoading(false);
             }
         }
     };
 
-    const handleSendComment = async (e: React.FormEvent) => {
+    const handleSendComment = async (e: React.FormEvent, parentId?: string) => {
         e.preventDefault();
-        if (!commentInput.trim()) return;
-        setSendingComment(true);
+        const content = parentId ? replyInput : commentInput;
+        if (!content.trim()) return;
+
+        if (parentId) setSendingReply(true);
+        else setSendingComment(true);
+
         try {
-            await addComment(post.id, commentInput);
-            setCommentInput('');
+            await addComment(post.id, content, parentId);
+            if (parentId) {
+                setReplyInput('');
+                setReplyingTo(null);
+            } else {
+                setCommentInput('');
+            }
+
             const data = await getComments(post.id);
             setComments(data);
             setCommentsCount(prev => prev + 1);
         } catch (e) {
-            addToast('Failed to comment', 'error');
+            addToast(t('failed_comment'), 'error');
         } finally {
-            setSendingComment(false);
+            if (parentId) setSendingReply(false);
+            else setSendingComment(false);
+        }
+    };
+
+    const handleDeleteComment = async (commentId: string) => {
+        if (!confirm(t('delete_confirm'))) return;
+        try {
+            await deleteComment(commentId);
+            setComments(prev => prev.filter(c => c.id !== commentId));
+            setCommentsCount(prev => Math.max(0, prev - 1));
+            addToast(t('comment_deleted'), 'success');
+        } catch (e) {
+            addToast(t('failed_delete_comment'), 'error');
         }
     };
 
@@ -129,9 +286,9 @@ export const FeedItem: React.FC<{ post: Post & { user?: User }; currentUser: Use
             try {
                 await deletePost(post.id);
                 onDelete(post.id);
-                addToast(t('post_deleted'), 'success');
+                addToast('Post deleted', 'success');
             } catch (e) {
-                addToast('Delete failed', 'error');
+                addToast(t('delete_failed'), 'error');
             }
         }
     };
@@ -140,141 +297,161 @@ export const FeedItem: React.FC<{ post: Post & { user?: User }; currentUser: Use
     const displayImages = post.imageUrls || [];
 
     return (
-        <motion.div
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0, scale: 0.95 }}
-            transition={{ duration: 0.4, ease: [0.23, 1, 0.32, 1] }}
-            className="bg-white dark:bg-zinc-900/40 border border-zinc-200 dark:border-zinc-800/50 rounded-sm p-6 transition-all shadow-sm dark:shadow-none mb-6 hover:border-zinc-300 dark:hover:border-zinc-700"
-        >
-            <div className="flex items-start justify-between mb-4">
-                <div className="flex items-start gap-4">
-                    <div className="h-10 w-10 rounded-full bg-gray-100 dark:bg-zinc-800 flex items-center justify-center text-black dark:text-white font-bold border border-zinc-200 dark:border-zinc-700 shrink-0 overflow-hidden">
-                        {post.user?.avatarUrl ? (
-                            <ImagePreview
-                                src={post.user.avatarUrl}
-                                alt="Avatar"
-                                className="h-full w-full"
-                                thumbnailClassName="h-full w-full object-cover"
-                            />
-                        ) : (
-                            <span>{post.user?.nickname?.charAt(0).toUpperCase() || '?'}</span>
-                        )}
-                    </div>
+        <article className="group relative bg-white dark:bg-zinc-900/50 backdrop-blur-sm border border-zinc-100 dark:border-zinc-800/50 rounded-2xl mb-8 transition-all hover:shadow-xl hover:border-zinc-200 dark:hover:border-zinc-700 animate-fadeIn flex flex-col overflow-hidden">
 
-                    <div>
-                        <div className="flex flex-wrap items-baseline gap-2">
-                            <span className="text-black dark:text-white font-bold hover:underline cursor-pointer tracking-tight">{post.user?.nickname || t('unknown_member')}</span>
-                            <div className="flex flex-wrap gap-1">
-                                {post.user?.jobTags?.map(t => <span key={t} className="text-[10px] text-zinc-600 dark:text-zinc-400 border border-zinc-300 dark:border-zinc-800 px-1.5 py-0.5 rounded-[2px] bg-gray-100 dark:bg-zinc-900 font-mono">{t}</span>)}
-                            </div>
-                        </div>
+            {/* Decorative gradient glow on hover */}
+            <div className="absolute inset-0 bg-gradient-to-tr from-zinc-50/0 via-zinc-50/0 to-zinc-100/0 group-hover:to-zinc-100/50 dark:group-hover:to-zinc-800/20 transition-all duration-700 pointer-events-none"></div>
 
-                        <div className="flex items-center gap-3 mt-1">
-                            <span className="text-xs text-zinc-500 font-mono">{formatLocalTime(post.createdAt)}</span>
-                            {post.location && (
-                                <span className="text-[10px] text-blue-600 dark:text-blue-500 flex items-center gap-1 max-w-[150px] truncate bg-blue-50 dark:bg-blue-900/10 px-1.5 rounded-sm" title={post.location}>
-                                    <Icons.MapPin className="w-3 h-3" /> {post.location}
-                                </span>
+            <div className="p-6 relative z-10">
+                {/* Header */}
+                <div className="flex items-start justify-between mb-4">
+                    <div className="flex items-center gap-4">
+                        <div className="h-12 w-12 rounded-full bg-zinc-100 dark:bg-zinc-800 flex items-center justify-center border-2 border-white dark:border-zinc-900 shadow-sm shrink-0 overflow-hidden">
+                            {post.user?.avatarUrl ? (
+                                <ImagePreview
+                                    src={post.user.avatarUrl}
+                                    alt="Avatar"
+                                    className="h-full w-full"
+                                    thumbnailClassName="h-full w-full object-cover"
+                                />
+                            ) : (
+                                <span className="font-bold text-zinc-500 dark:text-zinc-400 text-lg">{post.user?.nickname?.charAt(0).toUpperCase() || '?'}</span>
                             )}
                         </div>
+
+                        <div className="flex flex-col">
+                            <div className="flex items-center gap-2">
+                                <span className="text-base font-bold text-black dark:text-white hover:underline cursor-pointer tracking-tight">
+                                    {post.user?.nickname || t('unknown_member')}
+                                </span>
+                                {post.user?.jobTags?.map(tag => (
+                                    <span key={tag} className="hidden sm:inline-block text-[10px] font-bold text-zinc-500 dark:text-zinc-400 bg-zinc-100 dark:bg-zinc-800 px-2 py-0.5 rounded-full uppercase tracking-wider">
+                                        {tag}
+                                    </span>
+                                ))}
+                            </div>
+
+                            <div className="flex items-center gap-2 text-xs font-medium text-zinc-400 dark:text-zinc-500">
+                                <span>{formatRelativeTime(post.createdAt)}</span>
+                                {post.location && (
+                                    <>
+                                        <span className="w-0.5 h-0.5 bg-zinc-300 rounded-full"></span>
+                                        <span className="flex items-center gap-1 max-w-[150px] truncate text-zinc-500 dark:text-zinc-400">
+                                            <Icons.MapPin className="w-3 h-3" />
+                                            {post.location}
+                                        </span>
+                                    </>
+                                )}
+                            </div>
+                        </div>
+                    </div>
+
+                    {canDelete && (
+                        <button onClick={handleDelete} className="text-zinc-300 hover:text-red-500 transition-colors p-2 rounded-full hover:bg-red-50 dark:hover:bg-red-900/20 opacity-0 group-hover:opacity-100">
+                            <Icons.X className="w-4 h-4" />
+                        </button>
+                    )}
+                </div>
+
+                {/* Content */}
+                <div className="pl-[64px]">
+                    <div className="text-base leading-relaxed text-black dark:text-white whitespace-pre-wrap break-words mb-4 font-normal">
+                        {post.content}
+                    </div>
+
+                    {/* Media Grid */}
+                    <div className="mb-4">
+                        <ImageGrid imageUrls={displayImages} />
+                    </div>
+
+                    {/* Action Bar */}
+                    <div className="flex items-center gap-6 pt-2">
+                        <button
+                            onClick={handleLike}
+                            className={`flex items-center gap-2 text-sm font-medium transition-all group/btn ${isLiked
+                                ? 'text-red-500'
+                                : 'text-zinc-400 hover:text-red-500'
+                                }`}
+                        >
+                            <div className={`p-2 rounded-full transition-colors ${isLiked ? 'bg-red-50 dark:bg-red-900/20' : 'group-hover/btn:bg-red-50 dark:group-hover/btn:bg-red-900/20'}`}>
+                                <Icons.Heart className={`w-5 h-5 transition-transform ${isLiked ? 'fill-current scale-110' : 'scale-100'}`} fill={isLiked} />
+                            </div>
+                            <span>{likes > 0 ? likes : ''}</span>
+                        </button>
+
+                        <button
+                            onClick={toggleComments}
+                            className={`flex items-center gap-2 text-sm font-medium transition-all group/btn ${showComments
+                                ? 'text-blue-500'
+                                : 'text-zinc-400 hover:text-blue-500'
+                                }`}
+                        >
+                            <div className={`p-2 rounded-full transition-colors ${showComments ? 'bg-blue-50 dark:bg-blue-900/20' : 'group-hover/btn:bg-blue-50 dark:group-hover/btn:bg-blue-900/20'}`}>
+                                <Icons.MessageSquare className="w-5 h-5" />
+                            </div>
+                            <span>{commentsCount > 0 ? commentsCount : ''}</span>
+                        </button>
                     </div>
                 </div>
-
-                {canDelete && (
-                    <Button variant="ghost" size="sm" onClick={handleDelete} className="text-zinc-400 hover:text-red-500 p-0 h-8 w-8 rounded-full">
-                        <Icons.Trash className="w-4 h-4" />
-                    </Button>
-                )}
             </div>
 
-            <div className="text-zinc-800 dark:text-zinc-300 mb-4 whitespace-pre-wrap leading-relaxed text-sm pl-14">
-                {post.content}
-            </div>
-
-            <div className="pl-14">
-                <ImageGrid imageUrls={displayImages} />
-
-                <div className="flex items-center pt-4 border-t border-zinc-100 dark:border-zinc-800 text-xs text-zinc-500 font-bold select-none gap-6">
-                    <motion.button
-                        whileTap={{ scale: 0.9 }}
-                        onClick={handleLike}
-                        className={cn(
-                            "flex items-center gap-2 px-3 py-1.5 rounded-full transition-colors",
-                            isLiked ? 'text-red-500 bg-red-50 dark:bg-red-900/10' : 'hover:bg-gray-50 dark:hover:bg-zinc-800'
-                        )}
-                    >
-                        <Icons.Heart className={cn("w-4 h-4 transition-transform", isLiked && "fill-current")} />
-                        <span>{likes > 0 ? likes : t('like')}</span>
-                    </motion.button>
-
-                    <motion.button
-                        whileTap={{ scale: 0.9 }}
-                        onClick={toggleComments}
-                        className="flex items-center gap-2 px-3 py-1.5 rounded-full hover:bg-gray-50 dark:hover:bg-zinc-800 transition-colors"
-                    >
-                        <Icons.MessageSquare className="w-4 h-4" />
-                        <span>{commentsCount > 0 ? commentsCount : t('comment')}</span>
-                    </motion.button>
-                </div>
-
-                {/* Comments Section */}
-                <AnimatePresence>
-                    {showComments && (
-                        <motion.div
-                            initial={{ height: 0, opacity: 0 }}
-                            animate={{ height: 'auto', opacity: 1 }}
-                            exit={{ height: 0, opacity: 0 }}
-                            className="overflow-hidden"
-                        >
-                            <div className="pt-4 mt-4 border-t border-zinc-100 dark:border-zinc-800/50">
-                                {commentsLoading ? (
-                                    <div className="flex items-center justify-center py-4">
-                                        <Spinner size="sm" />
-                                    </div>
-                                ) : (
-                                    <div className="space-y-4 mb-4 max-h-60 overflow-y-auto pr-2 custom-scrollbar">
-                                        {comments.length === 0 && !commentsLoading && <div className="text-xs text-zinc-400 italic text-center py-2">{t('no_comments')}</div>}
-                                        {comments.map(c => (
-                                            <div key={c.id} className="flex gap-3 group">
-                                                <div className="h-6 w-6 rounded-full bg-zinc-200 dark:bg-zinc-700 flex items-center justify-center text-[10px] shrink-0 overflow-hidden">
-                                                    {c.user?.avatarUrl ? <img src={c.user.avatarUrl} className="w-full h-full object-cover" /> : c.user?.nickname?.charAt(0) || '?'}
-                                                </div>
-                                                <div className="flex-1">
-                                                    <div className="flex items-baseline justify-between">
-                                                        <span className="text-xs font-bold text-black dark:text-white mr-2">{c.user?.nickname || 'User'}</span>
-                                                        <span className="text-[10px] text-zinc-400 font-mono">{formatLocalTime(c.createdAt)}</span>
-                                                    </div>
-                                                    <p className="text-sm text-zinc-600 dark:text-zinc-300 mt-0.5">{c.content}</p>
-                                                </div>
-                                            </div>
-                                        ))}
-                                    </div>
-                                )}
-
-                                <fieldset disabled={sendingComment} className="group">
-                                    <form onSubmit={handleSendComment} className="flex items-center bg-gray-50 dark:bg-black border border-zinc-200 dark:border-zinc-700 rounded-sm p-1 focus-within:border-black dark:focus-within:border-white transition-colors">
-                                        <input
-                                            value={commentInput}
-                                            onChange={e => setCommentInput(e.target.value)}
-                                            placeholder={t('write_comment')}
-                                            className="flex-1 bg-transparent px-3 py-1.5 text-sm outline-none text-black dark:text-white placeholder-zinc-400"
-                                        />
-                                        <button
-                                            type="submit"
-                                            disabled={sendingComment || !commentInput.trim()}
-                                            className="px-3 py-1.5 bg-black dark:bg-white text-white dark:text-black rounded-sm text-xs font-bold hover:opacity-80 disabled:opacity-50 disabled:cursor-not-allowed transition-opacity h-full"
-                                        >
-                                            {sendingComment ? <Spinner size="sm" className="border-white dark:border-black" /> : '→'}
-                                        </button>
-                                    </form>
-                                </fieldset>
+            {/* Comments Section */}
+            {showComments && (
+                <div className="border-t border-zinc-100 dark:border-zinc-800/50 bg-zinc-50/80 dark:bg-black/40 backdrop-blur-sm animate-fadeIn">
+                    <div className="p-6 pl-[88px]">
+                        {commentsLoading ? (
+                            <div className="flex items-center justify-center py-6">
+                                <Spinner size="sm" />
                             </div>
-                        </motion.div>
-                    )}
-                </AnimatePresence>
-            </div>
-        </motion.div>
+                        ) : (
+                            <div className="space-y-6 mb-6 max-h-[500px] overflow-y-auto custom-scrollbar pr-2">
+                                {comments.length === 0 && (
+                                    <div className="text-xs text-zinc-400 italic">{t('no_comments')}</div>
+                                )}
+                                {comments.map(c => (
+                                    <CommentItem
+                                        key={c.id}
+                                        comment={c}
+                                        currentUser={currentUser}
+                                        replyingTo={replyingTo}
+                                        setReplyingTo={setReplyingTo}
+                                        replyInput={replyInput}
+                                        setReplyInput={setReplyInput}
+                                        onSend={handleSendComment}
+                                        onDelete={handleDeleteComment}
+                                        sendingReply={sendingReply}
+                                    />
+                                ))}
+                            </div>
+                        )}
+
+                        {/* Comment Input */}
+                        <fieldset disabled={sendingComment} className="relative">
+                            <form onSubmit={(e) => handleSendComment(e)} className="flex items-center gap-3">
+                                <div className="h-8 w-8 rounded-full bg-zinc-100 dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 flex items-center justify-center text-[10px] shrink-0">
+                                    {currentUser.avatarUrl ? <img src={currentUser.avatarUrl} className="w-full h-full object-cover rounded-full" /> : currentUser.nickname?.charAt(0)}
+                                </div>
+                                <div className="flex-1 relative">
+                                    <input
+                                        value={commentInput}
+                                        onChange={e => setCommentInput(e.target.value)}
+                                        placeholder={t('write_comment')}
+                                        className="w-full bg-zinc-100 dark:bg-zinc-800 border-none rounded-full px-4 py-2.5 text-sm outline-none text-black dark:text-white placeholder-zinc-400 focus:ring-1 focus:ring-black dark:focus:ring-white transition-all"
+                                    />
+                                    <button
+                                        type="submit"
+                                        disabled={sendingComment || !commentInput.trim()}
+                                        className="absolute right-2 top-1/2 -translate-y-1/2 p-1.5 bg-black dark:bg-white text-white dark:text-black rounded-full disabled:opacity-30 disabled:bg-zinc-300 dark:disabled:bg-zinc-700 transition-all hover:scale-105"
+                                    >
+                                        {sendingComment ? <Spinner size="sm" className="border-white dark:border-black" /> : <Icons.ChevronDown className="w-3 h-3 -rotate-90" />}
+                                    </button>
+                                </div>
+                            </form>
+                        </fieldset>
+                    </div>
+                </div>
+            )}
+        </article>
     );
 };
 
@@ -298,8 +475,11 @@ const FeedPage: React.FC<FeedProps> = ({ user }) => {
 
     const fileInputRef = useRef<HTMLInputElement>(null);
 
+    const [newPostId, setNewPostId] = useState<string | null>(null);
+
     const fetchPosts = async (currentPage: number, reset: boolean = false) => {
         if (!reset && loading) return;
+
         if (currentPage === 1) setLoading(true);
 
         const { data } = await getFeed(currentPage, 10);
@@ -394,11 +574,11 @@ const FeedPage: React.FC<FeedProps> = ({ user }) => {
                     setLocationLoading(false);
                 }
             }, (err) => {
-                addToast(t('loc_fail'), 'error');
+                addToast(t('loc_fetch_fail'), 'error');
                 setLocationLoading(false);
             }, { timeout: 10000 });
         } else {
-            addToast(t('geo_fail'), 'error');
+            addToast(t('geo_not_supported'), 'error');
             setLocationLoading(false);
         }
     };
@@ -424,6 +604,7 @@ const FeedPage: React.FC<FeedProps> = ({ user }) => {
                 user: user
             };
 
+            setNewPostId(newId);
             setPosts(prev => [optimisticPost, ...prev]);
 
             setNewContent('');
@@ -432,6 +613,7 @@ const FeedPage: React.FC<FeedProps> = ({ user }) => {
             setLocation(null);
 
             addToast(t('content_published'), "success");
+            setTimeout(() => setNewPostId(null), 2000);
 
         } catch (error) {
             addToast(t('post_fail'), "error");
@@ -441,149 +623,137 @@ const FeedPage: React.FC<FeedProps> = ({ user }) => {
     };
 
     return (
-        <div className="max-w-3xl mx-auto px-4 py-8">
-            {/* Post Creator - Terminal Style */}
-            <motion.div
-                initial={{ opacity: 0, y: -20 }}
-                animate={{ opacity: 1, y: 0 }}
-                className="bg-black dark:bg-zinc-900 border border-zinc-800 rounded-sm p-1 mb-8 shadow-lg overflow-hidden"
-            >
-                <div className="bg-zinc-900 dark:bg-black px-4 py-2 flex items-center justify-between border-b border-zinc-800">
-                    <div className="flex items-center gap-2">
-                        <div className="w-3 h-3 rounded-full bg-red-500/20 border border-red-500/50"></div>
-                        <div className="w-3 h-3 rounded-full bg-yellow-500/20 border border-yellow-500/50"></div>
-                        <div className="w-3 h-3 rounded-full bg-green-500/20 border border-green-500/50"></div>
-                    </div>
-                    <span className="text-[10px] font-mono text-zinc-500 uppercase tracking-widest">TRANSMISSION_UPLINK</span>
-                </div>
+        <div className="max-w-2xl mx-auto px-4 py-8">
+            {/* Post Creator */}
+            {/* Post Creator */}
+            <div className="mb-8">
+                <fieldset disabled={submitting} className="group">
+                    <form onSubmit={handleSubmit}>
+                        <div className="bg-white dark:bg-black border border-zinc-200 dark:border-zinc-800 rounded-lg shadow-sm overflow-hidden transition-all focus-within:ring-1 focus-within:ring-black dark:focus-within:ring-white focus-within:border-transparent">
+                            <div className="p-4">
+                                <div className="flex gap-4">
+                                    <div className="h-10 w-10 rounded-full bg-zinc-100 dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 flex items-center justify-center text-sm shrink-0 overflow-hidden">
+                                        {user.avatarUrl ? <img src={user.avatarUrl} className="w-full h-full object-cover" /> : user.nickname.charAt(0)}
+                                    </div>
+                                    <div className="flex-1">
+                                        <textarea
+                                            className="w-full bg-transparent border-none p-2 text-base text-black dark:text-white focus:outline-none resize-none h-24 placeholder-zinc-400 leading-relaxed"
+                                            placeholder={t('share_placeholder')}
+                                            value={newContent}
+                                            onChange={(e) => setNewContent(e.target.value)}
+                                        />
 
-                <div className="p-4 bg-zinc-950">
-                    <fieldset disabled={submitting} className="group">
-                        <form onSubmit={handleSubmit}>
-                            <div className="flex gap-2 mb-4">
-                                <span className="text-green-500 font-mono text-sm pt-1">$</span>
-                                <textarea
-                                    className="w-full bg-transparent text-zinc-300 font-mono text-sm focus:outline-none resize-none h-24 placeholder-zinc-700"
-                                    placeholder={t('share_placeholder')}
-                                    value={newContent}
-                                    onChange={(e) => setNewContent(e.target.value)}
-                                />
+                                        {/* Attachments Preview */}
+                                        {(previewUrls.length > 0 || location) && (
+                                            <div className="mt-2 p-3 bg-zinc-50 dark:bg-zinc-900/50 rounded-md">
+                                                {location && (
+                                                    <div className="flex items-center gap-2 text-xs text-blue-600 dark:text-blue-400 bg-blue-50 dark:bg-blue-900/20 px-2 py-1.5 rounded-md w-fit mb-3 font-medium">
+                                                        <span>📍 {location}</span>
+                                                        <button type="button" onClick={() => setLocation(null)} className="hover:text-black dark:hover:text-white transition-colors">
+                                                            <Icons.X className="w-3 h-3" />
+                                                        </button>
+                                                    </div>
+                                                )}
+
+                                                {previewUrls.length > 0 && (
+                                                    <div className="grid grid-cols-4 sm:grid-cols-5 gap-2">
+                                                        {previewUrls.map((url, idx) => (
+                                                            <div key={idx} className="relative aspect-square group rounded-md overflow-hidden">
+                                                                <img src={url} className="w-full h-full object-cover" alt={t('preview')} />
+                                                                <button type="button" onClick={() => removeFile(idx)} className="absolute top-1 right-1 bg-black/50 hover:bg-black text-white rounded-full p-1 transition-colors backdrop-blur-sm">
+                                                                    <Icons.X className="w-3 h-3" />
+                                                                </button>
+                                                            </div>
+                                                        ))}
+                                                    </div>
+                                                )}
+                                            </div>
+                                        )}
+                                    </div>
+                                </div>
                             </div>
 
-                            <AnimatePresence>
-                                {(previewUrls.length > 0 || location) && (
-                                    <motion.div
-                                        initial={{ height: 0, opacity: 0 }}
-                                        animate={{ height: 'auto', opacity: 1 }}
-                                        exit={{ height: 0, opacity: 0 }}
-                                        className="mb-4 pl-6"
-                                    >
-                                        <div className="p-3 bg-zinc-900/50 border border-zinc-800/50 rounded-sm">
-                                            {location && (
-                                                <div className="flex items-center gap-2 text-xs text-blue-400 font-mono mb-3">
-                                                    <span>📍 {location}</span>
-                                                    <button type="button" onClick={() => setLocation(null)} className="text-zinc-500 hover:text-white">
-                                                        <Icons.X className="w-3 h-3" />
-                                                    </button>
-                                                </div>
-                                            )}
-
-                                            {previewUrls.length > 0 && (
-                                                <div className="grid grid-cols-5 gap-2">
-                                                    {previewUrls.map((url, idx) => (
-                                                        <div key={idx} className="relative aspect-square group bg-zinc-800 rounded-sm overflow-hidden border border-zinc-700">
-                                                            <img src={url} className="w-full h-full object-cover opacity-70 group-hover:opacity-100 transition-opacity" alt={`Preview ${idx}`} />
-                                                            <button type="button" onClick={() => removeFile(idx)} className="absolute top-0 right-0 bg-red-500/80 text-white p-0.5 w-4 h-4 flex items-center justify-center hover:bg-red-600">
-                                                                <Icons.X className="w-3 h-3" />
-                                                            </button>
-                                                        </div>
-                                                    ))}
-                                                </div>
-                                            )}
-                                        </div>
-                                    </motion.div>
-                                )}
-                            </AnimatePresence>
-
-                            <div className="flex justify-between items-center pl-6 border-t border-zinc-800/50 pt-3">
-                                <div className="flex gap-2">
+                            {/* Action Bar */}
+                            <div className="bg-zinc-50 dark:bg-zinc-900/30 px-4 py-2 flex justify-between items-center border-t border-zinc-100 dark:border-zinc-800">
+                                <div className="flex gap-1">
                                     <input type="file" ref={fileInputRef} onChange={handleFileSelect} className="hidden" accept="image/*" multiple />
 
-                                    <Button
-                                        variant="ghost"
-                                        size="sm"
+                                    <button
                                         type="button"
                                         onClick={() => fileInputRef.current?.click()}
                                         disabled={selectedFiles.length >= 9 || submitting}
-                                        className="text-zinc-500 hover:text-white hover:bg-zinc-800"
-                                        leftIcon={<Icons.Camera className="w-4 h-4" />}
+                                        className="p-2 text-zinc-500 hover:text-black dark:hover:text-white hover:bg-zinc-200 dark:hover:bg-zinc-800 rounded-full transition-colors"
+                                        title={t('image')}
                                     >
-                                        {selectedFiles.length > 0 && <span className="font-mono text-[10px] ml-1">[{selectedFiles.length}]</span>}
-                                    </Button>
+                                        <Icons.Camera className="w-5 h-5" />
+                                    </button>
 
-                                    <Button
-                                        variant="ghost"
-                                        size="sm"
+                                    <button
                                         type="button"
                                         onClick={handleGetLocation}
                                         disabled={locationLoading || submitting}
-                                        className="text-zinc-500 hover:text-white hover:bg-zinc-800"
+                                        className={`p-2 rounded-full transition-colors ${location ? 'text-blue-500 bg-blue-50 dark:bg-blue-900/20' : 'text-zinc-500 hover:text-black dark:hover:text-white hover:bg-zinc-200 dark:hover:bg-zinc-800'}`}
+                                        title={t('location')}
                                     >
-                                        {locationLoading ? <Spinner size="sm" className="border-zinc-500" /> : <Icons.MapPin className="w-4 h-4" />}
-                                    </Button>
+                                        {locationLoading ? <Spinner size="sm" /> : <Icons.MapPin className="w-5 h-5" />}
+                                    </button>
                                 </div>
 
-                                <motion.button
-                                    whileHover={{ scale: 1.02 }}
-                                    whileTap={{ scale: 0.98 }}
+                                <Button
                                     type="submit"
                                     disabled={submitting || (!newContent.trim() && selectedFiles.length === 0)}
-                                    className="px-6 py-1.5 bg-white text-black font-bold font-mono text-xs uppercase tracking-wider hover:bg-zinc-200 disabled:opacity-50 disabled:cursor-not-allowed"
+                                    isLoading={submitting}
+                                    size="sm"
+                                    className="px-6 rounded-full font-bold shadow-none"
                                 >
-                                    {submitting ? 'TRANSMITTING...' : t('publish')}
-                                </motion.button>
+                                    {t('publish')}
+                                </Button>
                             </div>
-                        </form>
-                    </fieldset>
-                </div>
-            </motion.div>
+                        </div>
+                    </form>
+                </fieldset>
+            </div>
 
             {/* Feed Stream */}
             <div className="space-y-6">
                 {loading && page === 1 ? (
-                    <div className="space-y-6 flex flex-col items-center py-12">
+                    <div className="flex flex-col items-center py-12">
                         <Spinner size="lg" />
-                        <p className="text-xs text-zinc-500 tracking-widest mt-4 font-mono animate-pulse">{t('syncing_feed')}</p>
+                        <p className="text-[10px] font-mono text-zinc-400 mt-4 tracking-widest">{t('syncing_data')}</p>
                     </div>
                 ) : (!posts || posts.length === 0) ? (
-                    <motion.div
-                        initial={{ opacity: 0 }}
-                        animate={{ opacity: 1 }}
-                        className="text-center text-zinc-500 dark:text-zinc-600 py-16 border border-dashed border-zinc-300 dark:border-zinc-800 rounded-sm flex flex-col items-center justify-center"
-                    >
-                        <Icons.Wind className="w-12 h-12 mb-4 opacity-50" />
-                        <p className="font-mono text-sm">{t('quiet_here')}</p>
-                    </motion.div>
+                    <div className="text-center text-zinc-500 dark:text-zinc-600 py-16 border border-dashed border-zinc-300 dark:border-zinc-800 rounded-sm flex flex-col items-center justify-center bg-zinc-50/50 dark:bg-zinc-900/20">
+                        <Icons.Wind className="w-12 h-12 mb-4 opacity-30" />
+                        <p className="text-sm font-medium">{t('quiet_here')}</p>
+                    </div>
                 ) : (
-                    <AnimatePresence mode='popLayout'>
+                    <>
                         {posts.map((post) => (
-                            <FeedItem
+                            <div
                                 key={post.id}
-                                post={post}
-                                currentUser={user}
-                                onDelete={(id) => setPosts(prev => prev.filter(p => p.id !== id))}
-                            />
+                                className={post.id === newPostId ? "animate-slideUp" : ""}
+                                style={post.id === newPostId ? { animationDuration: '0.6s', animationFillMode: 'backwards' } : {}}
+                            >
+                                <FeedItem
+                                    post={post}
+                                    currentUser={user}
+                                    onDelete={(id) => setPosts(prev => prev.filter(p => p.id !== id))}
+                                />
+                            </div>
                         ))}
 
-                        {/* Infinite Scroll Loader / End Message */}
-                        <div ref={observerTarget} className="py-8 text-center flex justify-center w-full">
+                        <div ref={observerTarget} className="py-8 text-center flex justify-center">
                             {hasMore ? (
                                 <Spinner size="md" className="opacity-50" />
                             ) : (
-                                <span className="text-xs text-zinc-400 tracking-widest uppercase">{t('end_of_feed')}</span>
+                                <div className="flex items-center gap-4 w-full justify-center">
+                                    <div className="h-px bg-zinc-200 dark:bg-zinc-800 w-12"></div>
+                                    <span className="text-[10px] text-zinc-300 dark:text-zinc-600 tracking-widest uppercase font-mono">{t('end_of_feed')}</span>
+                                    <div className="h-px bg-zinc-200 dark:bg-zinc-800 w-12"></div>
+                                </div>
                             )}
                         </div>
-                    </AnimatePresence>
+                    </>
                 )}
             </div>
         </div>
