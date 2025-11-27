@@ -123,6 +123,12 @@ export const Icons = {
             <path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"></path>
             <path d="M13.73 21a2 2 0 0 1-3.46 0"></path>
         </svg>
+    ),
+    Search: ({ className }: { className?: string }) => (
+        <svg className={className} width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+            <circle cx="11" cy="11" r="8"></circle>
+            <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
+        </svg>
     )
 };
 
@@ -339,7 +345,7 @@ export const ToastProvider: React.FC<{ children: React.ReactNode }> = ({ childre
                         className={`animate-fadeIn pointer-events-auto bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-700 shadow-2xl p-4 rounded-sm flex items-start gap-3 backdrop-blur-md bg-opacity-90 dark:bg-opacity-90 relative group ${toast.onClick ? 'cursor-pointer hover:bg-zinc-50 dark:hover:bg-zinc-800 transition-colors' : ''}`}
                     >
                         <div className={`w-2 h-2 rounded-full mt-1.5 flex-shrink-0 ${toast.type === 'success' ? 'bg-green-500' :
-                                toast.type === 'error' ? 'bg-red-500' : 'bg-blue-500'
+                            toast.type === 'error' ? 'bg-red-500' : 'bg-blue-500'
                             }`}></div>
                         <div className="flex-1 pr-4">
                             <p className="text-sm font-bold text-black dark:text-white leading-snug">{toast.message}</p>

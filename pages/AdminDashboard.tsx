@@ -5,6 +5,7 @@ import { getAdminUsers, updateUserStatus, createAnnouncement, getAllAnnouncement
 import { useApp } from '../utils/i18n';
 import { ImagePreview } from '../components/ImagePreview';
 import { Button, Badge, Spinner, useToast, Icons, CustomSelect, CustomDateInput } from '../components/UI';
+import { Country, City } from 'country-state-city';
 
 // --- Edit User Modal Component ---
 interface EditUserModalProps {
@@ -117,6 +118,56 @@ const AdminDashboard: React.FC = () => {
     const [activeTab, setActiveTab] = useState<'users' | 'content'>('users');
     const [users, setUsers] = useState<User[]>([]);
     const [announcements, setAnnouncements] = useState<Announcement[]>([]);
+
+    // Filters
+    const [filterEmail, setFilterEmail] = useState('');
+    const [filterCountry, setFilterCountry] = useState('');
+    const [filterCity, setFilterCity] = useState('');
+    const [filterExpStart, setFilterExpStart] = useState('');
+    const [filterExpEnd, setFilterExpEnd] = useState('');
+    const [countryCode, setCountryCode] = useState('');
+
+    useEffect(() => {
+        if (filterCountry) {
+            const c = Country.getAllCountries().find(c => c.name === filterCountry);
+            setCountryCode(c ? c.isoCode : '');
+            setFilterCity('');
+        } else {
+            setCountryCode('');
+            setFilterCity('');
+        }
+    }, [filterCountry]);
+
+    const clearFilters = () => {
+        setFilterEmail('');
+        setFilterCountry('');
+        setFilterCity('');
+        setFilterExpStart('');
+        setFilterExpEnd('');
+    };
+
+    const filteredUsers = users.filter(user => {
+        // Email Filter
+        if (filterEmail && !user.email.toLowerCase().includes(filterEmail.toLowerCase())) return false;
+
+        // Location Filter
+        if (filterCountry && user.country !== filterCountry) return false;
+        if (filterCity && user.city !== filterCity) return false;
+
+        // Expiration Filter
+        if (filterExpStart || filterExpEnd) {
+            if (!user.expirationDate) return false;
+            const exp = user.expirationDate;
+            if (filterExpStart && exp < new Date(filterExpStart).getTime()) return false;
+            if (filterExpEnd && exp > new Date(filterExpEnd).getTime()) return false;
+        }
+
+        return true;
+    });
+
+    const newApplications = filteredUsers.filter(u => u.status === UserStatus.PENDING && !u.isRenewal);
+    const renewalApplications = filteredUsers.filter(u => u.status === UserStatus.PENDING && u.isRenewal);
+    const activeUsers = filteredUsers.filter(u => u.status !== UserStatus.PENDING);
 
     // Site Config State
     const [videoUrl, setVideoUrl] = useState('');
@@ -276,9 +327,7 @@ const AdminDashboard: React.FC = () => {
         setAnnContent('');
     }
 
-    const newApplications = users.filter(u => u.status === UserStatus.PENDING && !u.isRenewal);
-    const renewalApplications = users.filter(u => u.status === UserStatus.PENDING && u.isRenewal);
-    const activeUsers = users.filter(u => u.status !== UserStatus.PENDING);
+
 
     return (
         <div className="flex flex-col md:flex-row min-h-[calc(100vh-64px)] bg-gray-50 dark:bg-nothing-black transition-colors">
@@ -314,7 +363,71 @@ const AdminDashboard: React.FC = () => {
                 ) : (
                     <>
                         {activeTab === 'users' && (
-                            <div className="space-y-12 animate-fadeIn">
+                            <div className="space-y-8 animate-fadeIn">
+                                {/* Filter Bar */}
+                                <div className="bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 p-4 rounded-sm shadow-sm">
+                                    <div className="grid grid-cols-1 md:grid-cols-5 gap-4 items-end">
+                                        <div>
+                                            <label className="text-[10px] font-bold text-zinc-400 uppercase tracking-wider mb-1 block">{t('filter_email')}</label>
+                                            <div className="relative">
+                                                <Icons.Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-zinc-400" />
+                                                <input
+                                                    value={filterEmail}
+                                                    onChange={e => setFilterEmail(e.target.value)}
+                                                    className="w-full pl-9 pr-3 py-2 bg-gray-50 dark:bg-black border border-zinc-200 dark:border-zinc-800 rounded-sm text-sm outline-none focus:border-black dark:focus:border-white transition-colors"
+                                                    placeholder="user@example.com"
+                                                />
+                                            </div>
+                                        </div>
+                                        <div>
+                                            <label className="text-[10px] font-bold text-zinc-400 uppercase tracking-wider mb-1 block">{t('filter_country')}</label>
+                                            <input
+                                                list="filter-country-list"
+                                                value={filterCountry}
+                                                onChange={e => setFilterCountry(e.target.value)}
+                                                className="w-full px-3 py-2 bg-gray-50 dark:bg-black border border-zinc-200 dark:border-zinc-800 rounded-sm text-sm outline-none focus:border-black dark:focus:border-white transition-colors"
+                                                placeholder="All Countries"
+                                            />
+                                            <datalist id="filter-country-list">
+                                                {Country.getAllCountries().map(c => (
+                                                    <option key={c.isoCode} value={c.name} />
+                                                ))}
+                                            </datalist>
+                                        </div>
+                                        <div>
+                                            <label className="text-[10px] font-bold text-zinc-400 uppercase tracking-wider mb-1 block">{t('filter_city')}</label>
+                                            <input
+                                                list="filter-city-list"
+                                                value={filterCity}
+                                                onChange={e => setFilterCity(e.target.value)}
+                                                disabled={!countryCode}
+                                                className="w-full px-3 py-2 bg-gray-50 dark:bg-black border border-zinc-200 dark:border-zinc-800 rounded-sm text-sm outline-none focus:border-black dark:focus:border-white transition-colors disabled:opacity-50"
+                                                placeholder="All Cities"
+                                            />
+                                            <datalist id="filter-city-list">
+                                                {countryCode && City.getCitiesOfCountry(countryCode)?.map(c => (
+                                                    <option key={c.name} value={c.name} />
+                                                ))}
+                                            </datalist>
+                                        </div>
+                                        <div className="flex gap-2">
+                                            <div className="flex-1">
+                                                <label className="text-[10px] font-bold text-zinc-400 uppercase tracking-wider mb-1 block">{t('filter_exp_start')}</label>
+                                                <CustomDateInput value={filterExpStart} onChange={setFilterExpStart} />
+                                            </div>
+                                            <div className="flex-1">
+                                                <label className="text-[10px] font-bold text-zinc-400 uppercase tracking-wider mb-1 block">{t('filter_exp_end')}</label>
+                                                <CustomDateInput value={filterExpEnd} onChange={setFilterExpEnd} />
+                                            </div>
+                                        </div>
+                                        <div>
+                                            <Button variant="ghost" onClick={clearFilters} className="w-full text-zinc-500 hover:text-black dark:hover:text-white">
+                                                {t('clear_filters')}
+                                            </Button>
+                                        </div>
+                                    </div>
+                                </div>
+
                                 {/* Approval Modals & Logic remain same */}
                                 {approvingUser && (
                                     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm p-4 animate-fadeIn">
@@ -549,6 +662,7 @@ const UserTable = ({ users, onStatusChange, onEdit, onApprove, isRenewal = false
                             <th className="px-6 py-4">{t('profession_tags')}</th>
                             <th className="px-6 py-4">{t('credential_upload')}</th>
                             <th className="px-6 py-4">{t('role')}</th>
+                            <th className="px-6 py-4">{t('last_login')}</th>
                             <th className="px-6 py-4">{t('status')}</th>
                             <th className="px-6 py-4">{t('actions_col')}</th>
                         </tr>
@@ -589,6 +703,9 @@ const UserTable = ({ users, onStatusChange, onEdit, onApprove, isRenewal = false
                                 </td>
                                 <td className="px-6 py-4 font-mono text-xs">
                                     {t(user.role)}
+                                </td>
+                                <td className="px-6 py-4 text-xs text-zinc-500">
+                                    {user.lastLogin ? new Date(user.lastLogin).toLocaleString() : '-'}
                                 </td>
                                 <td className="px-6 py-4">
                                     <div className="flex flex-col items-start gap-1">

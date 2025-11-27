@@ -5,6 +5,7 @@
 
 import { createClient, SupabaseClient, Session, EmailOtpType, RealtimeChannel } from '@supabase/supabase-js';
 import { User, UserRole, UserStatus, Announcement, Post, ApiResponse, Comment, SiteConfig, Notification, NotificationType } from '../types';
+import imageCompression from 'browser-image-compression';
 
 /*
   --- SUPABASE DATABASE SCHEMA (RUN THIS IN SQL EDITOR) ---
@@ -21,6 +22,9 @@ import { User, UserRole, UserStatus, Announcement, Post, ApiResponse, Comment, S
     avatar_url text,
     expiration_date timestamptz, -- New
     is_renewal boolean default false, -- New
+    country text, -- New
+    city text, -- New
+    last_login timestamptz, -- New
     created_at timestamptz default now()
   );
 
@@ -168,63 +172,17 @@ const compressImage = async (file: File): Promise<File> => {
     // Only compress images
     if (!file.type.startsWith('image/')) return file;
 
-    return new Promise((resolve, reject) => {
-        const img = new Image();
-        const url = URL.createObjectURL(file);
-
-        img.onload = () => {
-            URL.revokeObjectURL(url);
-            const canvas = document.createElement('canvas');
-            const ctx = canvas.getContext('2d');
-
-            if (!ctx) {
-                resolve(file); // Fallback
-                return;
-            }
-
-            // Target dimensions: Max 1280px width/height (approx 720p)
-            const MAX_SIZE = 1280;
-            let width = img.width;
-            let height = img.height;
-
-            if (width > height) {
-                if (width > MAX_SIZE) {
-                    height *= MAX_SIZE / width;
-                    width = MAX_SIZE;
-                }
-            } else {
-                if (height > MAX_SIZE) {
-                    width *= MAX_SIZE / height;
-                    height = MAX_SIZE;
-                }
-            }
-
-            canvas.width = width;
-            canvas.height = height;
-            ctx.drawImage(img, 0, 0, width, height);
-
-            // Compress to JPEG with 0.7 quality
-            canvas.toBlob((blob) => {
-                if (blob) {
-                    // If compressed blob is actually larger (rare but possible with low res PNGs), return original
-                    if (blob.size > file.size) {
-                        resolve(file);
-                    } else {
-                        const newFile = new File([blob], file.name.replace(/\.[^/.]+$/, ".jpg"), {
-                            type: 'image/jpeg',
-                            lastModified: Date.now(),
-                        });
-                        resolve(newFile);
-                    }
-                } else {
-                    resolve(file);
-                }
-            }, 'image/jpeg', 0.7);
+    try {
+        const options = {
+            maxSizeMB: 1,
+            maxWidthOrHeight: 1920,
+            useWebWorker: true
         };
-
-        img.onerror = (error) => reject(error);
-        img.src = url;
-    });
+        return await imageCompression(file, options);
+    } catch (error) {
+        console.error("Compression failed", error);
+        return file;
+    }
 };
 
 // --- Auth Service ---
@@ -297,6 +255,8 @@ export const verifyOtp = async (email: string, token: string, type: EmailOtpType
         });
 
         if (!error && data.session) {
+            // Update Last Login
+            await supabase!.from('profiles').update({ last_login: new Date().toISOString() }).eq('id', data.session.user.id);
             return { success: true, data: data.session };
         }
 
@@ -316,6 +276,8 @@ export const verifyOtp = async (email: string, token: string, type: EmailOtpType
             });
 
             if (!retryError && retryData.session) {
+                // Update Last Login
+                await supabase!.from('profiles').update({ last_login: new Date().toISOString() }).eq('id', retryData.session.user.id);
                 return { success: true, data: retryData.session };
             }
         }
@@ -356,7 +318,7 @@ export const uploadImage = async (file: File, bucket: 'avatars' | 'posts' | 'ass
     }
 };
 
-export const createProfile = async (data: { nickname: string; jobTags: string[]; credentialFile: File, avatarFile?: File }): Promise<ApiResponse<null>> => {
+export const createProfile = async (data: { nickname: string; jobTags: string[]; credentialFile: File, avatarFile?: File, country?: string, city?: string }): Promise<ApiResponse<null>> => {
     const check = ensureClient();
     if (!check.success) return check;
 
@@ -387,7 +349,9 @@ export const createProfile = async (data: { nickname: string; jobTags: string[];
             role: 'ADMIN',
             status: 'ACTIVE',
             expiration_date: '2026-05-01T00:00:00Z',
-            is_renewal: false
+            is_renewal: false,
+            country: data.country,
+            city: data.city
         });
 
         if (dbError) {
@@ -433,6 +397,8 @@ export const updateUserProfile = async (userId: string, updates: {
     credentialFile?: File;
     status?: UserStatus;
     isRenewal?: boolean;
+    country?: string;
+    city?: string;
 }) => {
     if (!supabase) return;
 
@@ -441,6 +407,8 @@ export const updateUserProfile = async (userId: string, updates: {
     if (updates.jobTags) payload.job_tags = updates.jobTags;
     if (updates.status) payload.status = updates.status;
     if (updates.isRenewal !== undefined) payload.is_renewal = updates.isRenewal;
+    if (updates.country) payload.country = updates.country;
+    if (updates.city) payload.city = updates.city;
 
     if (updates.avatarFile) {
         const url = await uploadImage(updates.avatarFile, 'avatars');
@@ -506,7 +474,10 @@ export const getCurrentUser = async (): Promise<User | null> => {
         avatarUrl: profile.avatar_url,
         createdAt: new Date(profile.created_at).getTime(),
         expirationDate: expirationDate || undefined,
-        isRenewal: profile.is_renewal
+        isRenewal: profile.is_renewal,
+        country: profile.country,
+        city: profile.city,
+        lastLogin: profile.last_login ? new Date(profile.last_login).getTime() : undefined
     };
 };
 
@@ -1028,25 +999,28 @@ export const subscribeToAdminChanges = (onData: (data: any) => void): RealtimeCh
 
 export const getAdminUsers = async (): Promise<User[]> => {
     if (!supabase) return [];
-    const { data, error } = await supabase.from('profiles').select('*').order('created_at', { ascending: false });
+    const { data, error } = await supabase.from('profiles').select('*, is_renewal').order('created_at', { ascending: false });
 
     if (error) {
         dispatchFatalError(error, 'getAdminUsers');
         return [];
     }
 
-    return (data || []).map((profile: any) => ({
-        id: profile.id,
-        email: profile.email,
-        nickname: profile.nickname,
-        role: profile.role,
-        status: profile.status,
-        jobTags: profile.job_tags || [],
-        credentialUrl: profile.credential_url,
-        avatarUrl: profile.avatar_url,
-        createdAt: new Date(profile.created_at).getTime(),
-        expirationDate: profile.expiration_date ? new Date(profile.expiration_date).getTime() : undefined,
-        isRenewal: profile.is_renewal
+    return (data || []).map((u: any) => ({
+        id: u.id,
+        email: u.email,
+        nickname: u.nickname,
+        role: u.role,
+        status: u.status,
+        jobTags: u.job_tags || [],
+        credentialUrl: u.credential_url,
+        avatarUrl: u.avatar_url,
+        createdAt: new Date(u.created_at).getTime(),
+        expirationDate: u.expiration_date ? new Date(u.expiration_date).getTime() : undefined,
+        isRenewal: u.is_renewal,
+        country: u.country,
+        city: u.city,
+        lastLogin: u.last_login ? new Date(u.last_login).getTime() : undefined
     }));
 };
 

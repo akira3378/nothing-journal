@@ -6,6 +6,7 @@ import { useApp } from '../utils/i18n';
 import { ImagePreview } from '../components/ImagePreview';
 import { Icons, Spinner } from '../components/UI';
 import { FeedItem } from './FeedPage'; // Reusing FeedItem
+import { Country, City } from 'country-state-city';
 
 interface ProfileProps {
     user: User;
@@ -18,6 +19,16 @@ const ProfilePage: React.FC<ProfileProps> = ({ user }) => {
     const [tags, setTags] = useState<string[]>(user.jobTags);
     const [tagInput, setTagInput] = useState('');
     const [saving, setSaving] = useState(false);
+    const [country, setCountry] = useState(user.country || '');
+    const [city, setCity] = useState(user.city || '');
+    const [countryCode, setCountryCode] = useState('');
+
+    useEffect(() => {
+        if (country) {
+            const c = Country.getAllCountries().find(c => c.name === country);
+            if (c) setCountryCode(c.isoCode);
+        }
+    }, [country]);
 
     // Posts State
     const [myPosts, setMyPosts] = useState<(Post & { user?: User })[]>([]);
@@ -81,7 +92,9 @@ const ProfilePage: React.FC<ProfileProps> = ({ user }) => {
             await updateUserProfile(user.id, {
                 nickname,
                 jobTags: tags,
-                avatarFile: avatarFile || undefined
+                avatarFile: avatarFile || undefined,
+                country,
+                city
             });
             setIsEditing(false);
             window.location.reload();
@@ -203,6 +216,44 @@ const ProfilePage: React.FC<ProfileProps> = ({ user }) => {
                                             className="text-2xl font-bold text-black dark:text-white bg-transparent border-b border-zinc-300 dark:border-zinc-700 w-full focus:border-black dark:focus:border-white outline-none py-1 disabled:opacity-50"
                                         />
                                     </div>
+
+                                    <div className="mb-4 grid grid-cols-2 gap-2">
+                                        <div>
+                                            <label className="text-xs text-zinc-400 uppercase font-bold tracking-wider mb-1 block">{t('select_country')}</label>
+                                            <input
+                                                list="profile-country-list"
+                                                value={country}
+                                                onChange={(e) => {
+                                                    const val = e.target.value;
+                                                    setCountry(val);
+                                                    const c = Country.getAllCountries().find(c => c.name === val);
+                                                    setCountryCode(c ? c.isoCode : '');
+                                                    setCity('');
+                                                }}
+                                                className="bg-transparent border-b border-zinc-300 dark:border-zinc-700 w-full text-sm py-1 outline-none focus:border-black dark:focus:border-white"
+                                            />
+                                            <datalist id="profile-country-list">
+                                                {Country.getAllCountries().map(c => (
+                                                    <option key={c.isoCode} value={c.name} />
+                                                ))}
+                                            </datalist>
+                                        </div>
+                                        <div>
+                                            <label className="text-xs text-zinc-400 uppercase font-bold tracking-wider mb-1 block">{t('select_city')}</label>
+                                            <input
+                                                list="profile-city-list"
+                                                value={city}
+                                                onChange={(e) => setCity(e.target.value)}
+                                                disabled={!countryCode}
+                                                className="bg-transparent border-b border-zinc-300 dark:border-zinc-700 w-full text-sm py-1 outline-none focus:border-black dark:focus:border-white disabled:opacity-50"
+                                            />
+                                            <datalist id="profile-city-list">
+                                                {countryCode && City.getCitiesOfCountry(countryCode)?.map(c => (
+                                                    <option key={c.name} value={c.name} />
+                                                ))}
+                                            </datalist>
+                                        </div>
+                                    </div>
                                 </fieldset>
                             ) : (
                                 <h1 className="text-3xl font-bold text-black dark:text-white tracking-tight">{user.nickname}</h1>
@@ -210,6 +261,12 @@ const ProfilePage: React.FC<ProfileProps> = ({ user }) => {
 
                             <div className="flex items-center gap-2 text-zinc-500 dark:text-zinc-400 text-sm font-mono mt-1">
                                 <span>{user.email}</span>
+                                {user.country && (
+                                    <>
+                                        <span className="w-1 h-1 bg-zinc-400 rounded-full"></span>
+                                        <span>{user.city ? `${user.city}, ${user.country}` : user.country}</span>
+                                    </>
+                                )}
                                 <span className="w-1 h-1 bg-zinc-400 rounded-full"></span>
                                 <span>{new Date(user.createdAt).getFullYear()}</span>
                             </div>

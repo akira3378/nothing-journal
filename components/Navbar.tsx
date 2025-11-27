@@ -77,8 +77,8 @@ export const Navbar: React.FC<NavbarProps> = ({ user, onLogout }) => {
                     if (payload && payload.status === 'PENDING') {
                         // Use duration 0 for persistent notifications
                         addToast(`New Application: ${payload.nickname}`, 'info', 0);
-                        fetchData(); // Refresh admin badge
                     }
+                    fetchData(); // Refresh admin badge on ANY change (e.g. approved, rejected)
                 });
             }
         };

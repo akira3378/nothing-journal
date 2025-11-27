@@ -24,6 +24,9 @@ export interface User {
   createdAt: number;
   expirationDate?: number; // New Field
   isRenewal?: boolean; // New Field to track if it's a renewal application
+  country?: string;
+  city?: string;
+  lastLogin?: number; // New Field
 }
 
 export interface Announcement {

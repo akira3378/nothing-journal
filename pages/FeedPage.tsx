@@ -540,7 +540,7 @@ const FeedPage: React.FC<FeedProps> = ({ user }) => {
     const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
         if (e.target.files && e.target.files.length > 0) {
             const newFiles = Array.from(e.target.files);
-            const totalFiles = [...selectedFiles, ...newFiles].slice(0, 9);
+            const totalFiles = [...selectedFiles, ...newFiles].slice(0, 4);
 
             setSelectedFiles(totalFiles);
             previewUrls.forEach(u => URL.revokeObjectURL(u));
@@ -694,7 +694,7 @@ const FeedPage: React.FC<FeedProps> = ({ user }) => {
                                     <button
                                         type="button"
                                         onClick={() => fileInputRef.current?.click()}
-                                        disabled={selectedFiles.length >= 9 || submitting}
+                                        disabled={selectedFiles.length >= 4 || submitting}
                                         className="p-2 text-zinc-500 hover:text-black dark:hover:text-white hover:bg-zinc-200 dark:hover:bg-zinc-800 rounded-full transition-colors"
                                         title={t('image')}
                                     >

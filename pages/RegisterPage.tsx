@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { sendOtp, verifyOtp, createProfile, getSession, logout } from '../services/mockBackend';
 import { useApp } from '../utils/i18n';
 import { Icons } from '../components/UI';
+import { Country, City } from 'country-state-city';
 
 const RegisterPage: React.FC = () => {
     const navigate = useNavigate();
@@ -14,6 +15,9 @@ const RegisterPage: React.FC = () => {
     const [nickname, setNickname] = useState('');
     const [tagInput, setTagInput] = useState('');
     const [tags, setTags] = useState<string[]>([]);
+    const [country, setCountry] = useState('');
+    const [city, setCity] = useState('');
+    const [countryCode, setCountryCode] = useState('');
 
     // Files
     const [credFile, setCredFile] = useState<File | null>(null);
@@ -147,7 +151,9 @@ const RegisterPage: React.FC = () => {
                 nickname,
                 jobTags: tags,
                 credentialFile: credFile,
-                avatarFile: avatarFile || undefined
+                avatarFile: avatarFile || undefined,
+                country,
+                city
             });
 
             if (res.success) {
@@ -280,6 +286,48 @@ const RegisterPage: React.FC = () => {
                                     <label className="block text-xs font-bold text-zinc-500 uppercase tracking-wider mb-1">{t('nickname')}</label>
                                     <input type="text" required value={nickname} onChange={e => setNickname(e.target.value)}
                                         className="mt-1 block w-full bg-gray-50 dark:bg-black border border-zinc-300 dark:border-zinc-700 rounded-sm py-3 px-4 text-black dark:text-white focus:border-black dark:focus:border-white focus:outline-none transition-colors placeholder-zinc-400 dark:placeholder-zinc-700 disabled:opacity-50" placeholder="CyberPunk2077" />
+                                </div>
+
+                                {/* Location */}
+                                <div>
+                                    <label className="block text-xs font-bold text-zinc-500 uppercase tracking-wider mb-1">{t('location')}</label>
+                                    <div className="grid grid-cols-2 gap-4">
+                                        <div>
+                                            <input
+                                                list="country-list"
+                                                value={country}
+                                                onChange={(e) => {
+                                                    const val = e.target.value;
+                                                    setCountry(val);
+                                                    const c = Country.getAllCountries().find(c => c.name === val);
+                                                    setCountryCode(c ? c.isoCode : '');
+                                                    setCity('');
+                                                }}
+                                                className="mt-1 block w-full bg-gray-50 dark:bg-black border border-zinc-300 dark:border-zinc-700 rounded-sm py-3 px-4 text-black dark:text-white focus:border-black dark:focus:border-white focus:outline-none transition-colors placeholder-zinc-400 dark:placeholder-zinc-700 disabled:opacity-50"
+                                                placeholder={t('select_country')}
+                                            />
+                                            <datalist id="country-list">
+                                                {Country.getAllCountries().map(c => (
+                                                    <option key={c.isoCode} value={c.name} />
+                                                ))}
+                                            </datalist>
+                                        </div>
+                                        <div>
+                                            <input
+                                                list="city-list"
+                                                value={city}
+                                                onChange={(e) => setCity(e.target.value)}
+                                                disabled={!countryCode}
+                                                className="mt-1 block w-full bg-gray-50 dark:bg-black border border-zinc-300 dark:border-zinc-700 rounded-sm py-3 px-4 text-black dark:text-white focus:border-black dark:focus:border-white focus:outline-none transition-colors placeholder-zinc-400 dark:placeholder-zinc-700 disabled:opacity-50"
+                                                placeholder={t('select_city')}
+                                            />
+                                            <datalist id="city-list">
+                                                {countryCode && City.getCitiesOfCountry(countryCode)?.map(c => (
+                                                    <option key={c.name} value={c.name} />
+                                                ))}
+                                            </datalist>
+                                        </div>
+                                    </div>
                                 </div>
 
                                 {/* Tags */}
