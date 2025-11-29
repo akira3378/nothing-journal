@@ -217,6 +217,19 @@ const translations = {
     feature_identity_desc: '做你想做的人。',
     latest_updates: '公告',
     read_more: '阅读更多',
+
+    // Placeholders
+    comment_placeholder: '写下你的评论...',
+    supabase_url_placeholder: 'https://xyz.supabase.co',
+    supabase_key_placeholder: 'eyJh...',
+    email_placeholder: '你的邮箱@example.com',
+    verification_code_placeholder: '000000',
+    nickname_placeholder: 'CyberPunk2077',
+    youtube_url_placeholder: 'https://youtu.be/...',
+    announcement_title_placeholder: '输入标题...',
+    announcement_content_placeholder: '在此输入内容...',
+    max_tags_reached: '已达到标签上限',
+    member_email_placeholder: 'member@nothing.tech',
   },
   en: {
     app_name: 'NOTHING',
@@ -429,6 +442,19 @@ const translations = {
     feature_identity_desc: 'Be who you want to be.',
     latest_updates: 'Announcements',
     read_more: 'Read More',
+
+    // Placeholders
+    comment_placeholder: 'Write a comment...',
+    supabase_url_placeholder: 'https://xyz.supabase.co',
+    supabase_key_placeholder: 'eyJh...',
+    email_placeholder: 'you@example.com',
+    verification_code_placeholder: '000000',
+    nickname_placeholder: 'CyberPunk2077',
+    youtube_url_placeholder: 'https://youtu.be/...',
+    announcement_title_placeholder: 'Enter headline...',
+    announcement_content_placeholder: 'Write your message here...',
+    max_tags_reached: 'Max tags reached',
+    member_email_placeholder: 'member@nothing.tech',
   }
 };
 

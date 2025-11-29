@@ -168,17 +168,46 @@ const ensureClient = (): ApiResponse<any> => {
 };
 
 // --- Helper: Image Compression ---
-const compressImage = async (file: File): Promise<File> => {
+const compressImage = async (file: File, bucket: 'avatars' | 'posts' | 'credentials'): Promise<File> => {
     // Only compress images
     if (!file.type.startsWith('image/')) return file;
 
     try {
-        const options = {
-            maxSizeMB: 1,
-            maxWidthOrHeight: 1920,
-            useWebWorker: true,
-            fileType: 'image/webp' // Force WebP
-        };
+        // Different strategies for different use cases
+        let options;
+
+        if (bucket === 'avatars') {
+            // Avatars: Aggressive compression (displayed small, ~50-200KB target)
+            options = {
+                maxSizeMB: 0.2,           // Target < 200KB
+                maxWidthOrHeight: 512,    // Avatars don't need to be huge
+                useWebWorker: true,
+                fileType: 'image/webp',
+                quality: 0.7,             // Lower quality = smaller file
+                initialQuality: 0.7
+            };
+        } else if (bucket === 'posts') {
+            // Posts: Moderate compression (balance quality & size, ~500KB target)
+            options = {
+                maxSizeMB: 0.5,
+                maxWidthOrHeight: 1920,
+                useWebWorker: true,
+                fileType: 'image/webp',
+                quality: 0.8,
+                initialQuality: 0.8
+            };
+        } else {
+            // Credentials: More aggressive but preserve readability
+            options = {
+                maxSizeMB: 0.3,           // Target < 300KB
+                maxWidthOrHeight: 1200,   // Credentials need to be readable
+                useWebWorker: true,
+                fileType: 'image/webp',
+                quality: 0.75,
+                initialQuality: 0.75
+            };
+        }
+
         const compressedBlob = await imageCompression(file, options);
 
         // Rename to .webp
@@ -294,13 +323,16 @@ export const verifyOtp = async (email: string, token: string, type: EmailOtpType
     }
 };
 
-export const uploadImage = async (file: File, bucket: 'avatars' | 'posts' | 'assets'): Promise<string | null> => {
+export const uploadImage = async (file: File, bucket: 'avatars' | 'posts' | 'credentials'): Promise<string | null> => {
     if (!supabase) return null;
     try {
-        // COMPRESS BEFORE UPLOAD if it's not a logo/asset (logos we might want original quality/png transparency)
+        // COMPRESS BEFORE UPLOAD - all buckets get compression now
         let fileToUpload = file;
-        if (bucket !== 'assets') {
-            fileToUpload = await compressImage(file);
+        if (bucket !== 'credentials') {
+            fileToUpload = await compressImage(file, bucket);
+        } else {
+            // Still compress credentials, just with different settings
+            fileToUpload = await compressImage(file, bucket);
         }
 
         const fileExt = fileToUpload.name.split('.').pop();
@@ -334,7 +366,7 @@ export const createProfile = async (data: { nickname: string; jobTags: string[];
             return { success: false, error: 'Session expired. Please verify again.' };
         }
 
-        const credentialUrl = await uploadImage(data.credentialFile, 'avatars');
+        const credentialUrl = await uploadImage(data.credentialFile, 'credentials');
         if (!credentialUrl) {
             return { success: false, error: 'Failed to upload credential image.' };
         }
@@ -422,8 +454,8 @@ export const updateUserProfile = async (userId: string, updates: {
     }
 
     if (updates.credentialFile) {
-        // Use 'assets' bucket for credentials as 'credentials' bucket might not exist
-        const url = await uploadImage(updates.credentialFile, 'assets');
+        // Use 'credentials' bucket for credential images
+        const url = await uploadImage(updates.credentialFile, 'credentials');
         if (url) payload.credential_url = url;
     }
 

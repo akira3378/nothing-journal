@@ -322,10 +322,10 @@ export const FeedItem: React.FC<{ post: Post & { user?: User }; currentUser: Use
     const displayImages = post.imageUrls || [];
 
     return (
-        <article className="group relative bg-white dark:bg-zinc-900/50 backdrop-blur-sm border border-zinc-100 dark:border-zinc-800/50 rounded-2xl mb-8 transition-all hover:shadow-xl hover:border-zinc-200 dark:hover:border-zinc-700 animate-fadeIn flex flex-col overflow-hidden">
+        <article className="group relative bg-white dark:bg-zinc-900/50 backdrop-blur-sm border border-zinc-100 dark:border-zinc-800/50 rounded-2xl mb-8 transition-all md:hover:shadow-xl md:hover:border-zinc-200 dark:md:hover:border-zinc-700 animate-fadeIn flex flex-col overflow-hidden">
 
             {/* Decorative gradient glow on hover */}
-            <div className="absolute inset-0 bg-gradient-to-tr from-zinc-50/0 via-zinc-50/0 to-zinc-100/0 group-hover:to-zinc-100/50 dark:group-hover:to-zinc-800/20 transition-all duration-700 pointer-events-none"></div>
+            <div className="absolute inset-0 bg-gradient-to-tr from-zinc-50/0 via-zinc-50/0 to-zinc-100/0 md:group-hover:to-zinc-100/50 dark:md:group-hover:to-zinc-800/20 transition-all duration-700 pointer-events-none"></div>
 
             <div className="p-6 relative z-10">
                 {/* Header */}
@@ -377,7 +377,7 @@ export const FeedItem: React.FC<{ post: Post & { user?: User }; currentUser: Use
                             okText={t('delete')}
                             cancelText={t('cancel')}
                         >
-                            <button className="text-zinc-300 hover:text-red-500 transition-colors p-2 rounded-full hover:bg-red-50 dark:hover:bg-red-900/20 opacity-0 group-hover:opacity-100">
+                            <button className="text-zinc-300 md:hover:text-red-500 transition-colors p-2 rounded-full md:hover:bg-red-50 dark:md:hover:bg-red-900/20 opacity-100 md:opacity-0 md:group-hover:opacity-100">
                                 <Icons.X className="w-4 h-4" />
                             </button>
                         </Popconfirm>
@@ -401,10 +401,10 @@ export const FeedItem: React.FC<{ post: Post & { user?: User }; currentUser: Use
                             onClick={handleLike}
                             className={`flex items-center gap-2 text-sm font-medium transition-all group/btn ${isLiked
                                 ? 'text-red-500'
-                                : 'text-zinc-400 hover:text-red-500'
+                                : 'text-zinc-400 md:hover:text-red-500'
                                 }`}
                         >
-                            <div className={`p-2 rounded-full transition-colors ${isLiked ? 'bg-red-50 dark:bg-red-900/20' : 'group-hover/btn:bg-red-50 dark:group-hover/btn:bg-red-900/20'}`}>
+                            <div className={`p-2 rounded-full transition-colors ${isLiked ? 'bg-red-50 dark:bg-red-900/20' : 'md:group-hover/btn:bg-red-50 dark:md:group-hover/btn:bg-red-900/20'}`}>
                                 <Icons.Heart className={`w-5 h-5 transition-transform ${isLiked ? 'fill-current scale-110' : 'scale-100'}`} fill={isLiked} />
                             </div>
                             <span>{likes > 0 ? likes : ''}</span>
@@ -414,10 +414,10 @@ export const FeedItem: React.FC<{ post: Post & { user?: User }; currentUser: Use
                             onClick={toggleComments}
                             className={`flex items-center gap-2 text-sm font-medium transition-all group/btn ${showComments
                                 ? 'text-blue-500'
-                                : 'text-zinc-400 hover:text-blue-500'
+                                : 'text-zinc-400 md:hover:text-blue-500'
                                 }`}
                         >
-                            <div className={`p-2 rounded-full transition-colors ${showComments ? 'bg-blue-50 dark:bg-blue-900/20' : 'group-hover/btn:bg-blue-50 dark:group-hover/btn:bg-blue-900/20'}`}>
+                            <div className={`p-2 rounded-full transition-colors ${showComments ? 'bg-blue-50 dark:bg-blue-900/20' : 'md:group-hover/btn:bg-blue-50 dark:md:group-hover/btn:bg-blue-900/20'}`}>
                                 <Icons.MessageSquare className="w-5 h-5" />
                             </div>
                             <span>{commentsCount > 0 ? commentsCount : ''}</span>

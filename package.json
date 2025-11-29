@@ -15,7 +15,8 @@
     "react-dom": "^19.2.0",
     "country-state-city": "^3.2.1",
     "browser-image-compression": "^2.0.2",
-    "antd": "^5.14.0"
+    "antd": "^5.14.0",
+    "swr": "^2.2.4"
   },
   "devDependencies": {
     "@types/node": "^22.14.0",

@@ -157,8 +157,14 @@ export const Navbar: React.FC<NavbarProps> = ({ user, onLogout }) => {
                     <div className="border-t border-zinc-100 dark:border-zinc-800 my-2 pt-2">
                         <button onClick={() => { onLogout(); setIsMobileMenuOpen(false); }} className="text-left w-full text-zinc-600 dark:text-zinc-300 px-3 py-2 text-sm font-medium">{t('logout')}</button>
                     </div>
-                    <div className="px-3 py-2">
+                        <div className="px-3 py-2 flex items-center justify-between">
                         <LanguageSwitcher />
+                            <button
+                                onClick={toggleTheme}
+                                className="p-2 rounded-sm text-zinc-600 dark:text-zinc-300 hover:bg-zinc-100 dark:hover:bg-zinc-800 transition-colors"
+                            >
+                                {theme === 'dark' ? <Icons.Sun className="w-5 h-5" /> : <Icons.Moon className="w-5 h-5" />}
+                            </button>
                     </div>
                 </>
             )}
@@ -212,7 +218,7 @@ export const Navbar: React.FC<NavbarProps> = ({ user, onLogout }) => {
                         {user && (
                             <Popover
                                 content={
-                                    <div className="w-80 max-h-96 overflow-y-auto">
+                                    <div className="w-80 max-w-[calc(100vw-2rem)] max-h-96 overflow-y-auto">
                                         <List
                                             itemLayout="horizontal"
                                             dataSource={displayNotifications}
@@ -259,8 +265,10 @@ export const Navbar: React.FC<NavbarProps> = ({ user, onLogout }) => {
                             </Popover>
                         )}
 
-                        {/* Theme Toggle */}
-                        <Button type="text" onClick={toggleTheme} icon={theme === 'dark' ? <Icons.Sun className="w-5 h-5" /> : <Icons.Moon className="w-5 h-5" />} />
+                        {/* Theme Toggle - Desktop Only */}
+                        <div className="hidden md:block">
+                            <Button type="text" onClick={toggleTheme} icon={theme === 'dark' ? <Icons.Sun className="w-5 h-5" /> : <Icons.Moon className="w-5 h-5" />} />
+                        </div>
 
                         {/* Desktop Lang Switcher */}
                         <div className="hidden sm:block">

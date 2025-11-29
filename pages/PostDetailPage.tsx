@@ -128,7 +128,7 @@ const PostDetailPage: React.FC = () => {
         setReplyToId(commentId);
         setCommentInput(`@${username} `);
         // Focus input
-        const input = document.querySelector('input[placeholder="Write a comment..."]') as HTMLInputElement;
+        const input = document.querySelector('.comment-input') as HTMLInputElement;
         if (input) input.focus();
     };
 
@@ -315,6 +315,7 @@ const CommentInput: React.FC<{
     onSubmit: (e: React.FormEvent) => void,
     loading: boolean
 }> = ({ currentUser, value, onChange, onSubmit, loading }) => {
+    const { t } = useApp();
     return (
         <form onSubmit={onSubmit} className="relative shadow-lg rounded-full">
             <div className="absolute inset-0 bg-white dark:bg-zinc-900 rounded-full opacity-90 blur-sm"></div>
@@ -325,8 +326,8 @@ const CommentInput: React.FC<{
                 <input
                     value={value}
                     onChange={e => onChange(e.target.value)}
-                    className="flex-1 bg-transparent px-2 py-2 text-sm outline-none text-black dark:text-white placeholder-zinc-400"
-                    placeholder="Write a comment..."
+                    className="flex-1 bg-transparent px-2 py-2 text-sm outline-none text-black dark:text-white placeholder-zinc-400 comment-input"
+                    placeholder={t('comment_placeholder')}
                 />
                 <Button type="submit" isLoading={loading} disabled={!value.trim()} size="sm" className="h-8 rounded-full px-4">Send</Button>
             </div>

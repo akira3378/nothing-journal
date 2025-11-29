@@ -87,7 +87,7 @@ const AppContent: React.FC = () => {
   const [loading, setLoading] = useState(true);
   const [isConfigured, setIsConfigured] = useState(isBackendConfigured());
   const [configError, setConfigError] = useState(false);
-  const { siteConfig, theme, language } = useApp();
+  const { siteConfig, theme, language, t } = useApp();
 
   // Update dayjs locale
   useEffect(() => {
@@ -198,11 +198,11 @@ const AppContent: React.FC = () => {
           <form onSubmit={handleConfigure} className="space-y-4">
             <div>
               <label className="block text-xs font-bold text-zinc-500 uppercase mb-1">Supabase URL</label>
-              <input value={sbUrl} onChange={e => setSbUrl(e.target.value)} className="w-full bg-white dark:bg-black border border-zinc-300 dark:border-zinc-700 p-2 text-black dark:text-white text-sm rounded-sm focus:border-black dark:focus:border-white outline-none" placeholder="https://xyz.supabase.co" required />
+              <input value={sbUrl} onChange={e => setSbUrl(e.target.value)} className="w-full bg-white dark:bg-black border border-zinc-300 dark:border-zinc-700 p-2 text-black dark:text-white text-sm rounded-sm focus:border-black dark:focus:border-white outline-none" placeholder={t('supabase_url_placeholder')} required />
             </div>
             <div>
               <label className="block text-xs font-bold text-zinc-500 uppercase mb-1">Supabase Key</label>
-              <input value={sbKey} onChange={e => setSbKey(e.target.value)} className="w-full bg-white dark:bg-black border border-zinc-300 dark:border-zinc-700 p-2 text-black dark:text-white text-sm rounded-sm focus:border-black dark:focus:border-white outline-none" placeholder="eyJh..." required />
+              <input value={sbKey} onChange={e => setSbKey(e.target.value)} className="w-full bg-white dark:bg-black border border-zinc-300 dark:border-zinc-700 p-2 text-black dark:text-white text-sm rounded-sm focus:border-black dark:focus:border-white outline-none" placeholder={t('supabase_key_placeholder')} required />
             </div>
             <button type="submit" className="w-full bg-black dark:bg-white text-white dark:text-black font-bold py-2 rounded-sm hover:bg-zinc-800 dark:hover:bg-gray-200 text-sm mt-4 transition-colors">INITIALIZE SYSTEM</button>
           </form>

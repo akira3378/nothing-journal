@@ -215,7 +215,7 @@ const RegisterPage: React.FC = () => {
                                 <div>
                                     <label className="block text-xs font-bold text-zinc-500 uppercase tracking-wider mb-1">{t('email_label')}</label>
                                     <input type="email" required value={email} onChange={e => setEmail(e.target.value)}
-                                        className="mt-1 block w-full bg-gray-50 dark:bg-black border border-zinc-300 dark:border-zinc-700 rounded-sm py-3 px-4 text-black dark:text-white focus:border-black dark:focus:border-white focus:outline-none transition-colors placeholder-zinc-400 dark:placeholder-zinc-700 disabled:opacity-50" placeholder="you@example.com" />
+                                        className="mt-1 block w-full bg-gray-50 dark:bg-black border border-zinc-300 dark:border-zinc-700 rounded-sm py-3 px-4 text-black dark:text-white focus:border-black dark:focus:border-white focus:outline-none transition-colors placeholder-zinc-400 dark:placeholder-zinc-700 disabled:opacity-50" placeholder={t('email_placeholder')} />
                                 </div>
                                 <div className="bg-yellow-50 dark:bg-yellow-900/10 border border-yellow-200 dark:border-yellow-900/30 p-3 rounded-sm">
                                     <p className="text-xs text-yellow-700 dark:text-yellow-500 leading-relaxed">
@@ -256,7 +256,7 @@ const RegisterPage: React.FC = () => {
                                         value={otp}
                                         onChange={(e) => setOtp(e.target.value.replace(/[^0-9]/g, ''))}
                                         className="mt-1 block w-full bg-white dark:bg-black border border-zinc-300 dark:border-zinc-700 rounded-sm py-3 px-4 text-black dark:text-white text-center text-2xl tracking-[0.5em] font-mono focus:outline-none focus:border-black dark:focus:border-white transition-colors disabled:opacity-50"
-                                        placeholder="000000"
+                                        placeholder={t('verification_code_placeholder')}
                                     />
                                 </div>
                                 <div className="flex gap-4">
@@ -297,7 +297,7 @@ const RegisterPage: React.FC = () => {
                                 <div>
                                     <label className="block text-xs font-bold text-zinc-500 uppercase tracking-wider mb-1">{t('nickname')}</label>
                                     <input type="text" required value={nickname} onChange={e => setNickname(e.target.value)}
-                                        className="mt-1 block w-full bg-gray-50 dark:bg-black border border-zinc-300 dark:border-zinc-700 rounded-sm py-3 px-4 text-black dark:text-white focus:border-black dark:focus:border-white focus:outline-none transition-colors placeholder-zinc-400 dark:placeholder-zinc-700 disabled:opacity-50" placeholder="CyberPunk2077" />
+                                        className="mt-1 block w-full bg-gray-50 dark:bg-black border border-zinc-300 dark:border-zinc-700 rounded-sm py-3 px-4 text-black dark:text-white focus:border-black dark:focus:border-white focus:outline-none transition-colors placeholder-zinc-400 dark:placeholder-zinc-700 disabled:opacity-50" placeholder={t('nickname_placeholder')} />
                                 </div>
 
                                 {/* Location */}
@@ -354,7 +354,7 @@ const RegisterPage: React.FC = () => {
                                     <div className="flex gap-2">
                                         <input type="text" value={tagInput} onChange={e => setTagInput(e.target.value)} onKeyDown={handleKeyDown}
                                             disabled={tags.length >= 3}
-                                            placeholder={tags.length >= 3 ? "Max tags reached" : t('add_tag_placeholder')}
+                                            placeholder={tags.length >= 3 ? t('max_tags_reached') : t('add_tag_placeholder')}
                                             className="flex-1 bg-gray-50 dark:bg-black border border-zinc-300 dark:border-zinc-700 rounded-sm py-2 px-4 text-black dark:text-white text-sm focus:border-black dark:focus:border-white focus:outline-none disabled:opacity-50 transition-colors" />
                                         <button type="button" onClick={handleAddTag} disabled={tags.length >= 3}
                                             className="bg-zinc-200 dark:bg-zinc-800 border border-zinc-300 dark:border-zinc-700 px-4 py-2 rounded-sm text-black dark:text-white text-sm hover:bg-zinc-300 dark:hover:bg-zinc-700 disabled:opacity-50 font-bold transition-colors">{t('add')}</button>

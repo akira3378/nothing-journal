@@ -319,7 +319,7 @@ const AdminDashboard: React.FC = () => {
     const handleLogoUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
         if (e.target.files && e.target.files[0]) {
             const file = e.target.files[0];
-            const url = await uploadImage(file, 'assets');
+            const url = await uploadImage(file, 'credentials');
             if (url) {
                 setLogoUrl(url);
             } else {
@@ -537,7 +537,7 @@ const AdminDashboard: React.FC = () => {
                                             <input
                                                 value={videoUrl}
                                                 onChange={(e) => setVideoUrl(e.target.value)}
-                                                placeholder="https://youtu.be/..."
+                                                    placeholder={t('youtube_url_placeholder')}
                                                 className="w-full bg-gray-50 dark:bg-black border border-zinc-300 dark:border-zinc-700 p-3 text-sm text-black dark:text-white rounded-sm focus:border-black dark:focus:border-white outline-none transition-colors"
                                             />
                                             <p className="text-[10px] text-zinc-500 mt-2">{t('video_hint')}</p>
@@ -599,7 +599,7 @@ const AdminDashboard: React.FC = () => {
                                                             value={annTitle}
                                                             onChange={e => setAnnTitle(e.target.value)}
                                                             className="w-full bg-gray-50 dark:bg-black border border-zinc-300 dark:border-zinc-700 p-3 text-black dark:text-white rounded-sm focus:border-black dark:focus:border-white outline-none disabled:opacity-50 transition-colors"
-                                                            placeholder="Enter headline..."
+                                                                placeholder={t('announcement_title_placeholder')}
                                                         />
                                                     </div>
                                                     <div>
@@ -608,7 +608,7 @@ const AdminDashboard: React.FC = () => {
                                                             value={annContent}
                                                             onChange={e => setAnnContent(e.target.value)}
                                                             className="w-full h-48 bg-gray-50 dark:bg-black border border-zinc-300 dark:border-zinc-700 p-3 text-black dark:text-white rounded-sm focus:border-black dark:focus:border-white outline-none resize-none disabled:opacity-50 transition-colors"
-                                                            placeholder="Write your message here..."
+                                                                placeholder={t('announcement_content_placeholder')}
                                                         />
                                                     </div>
                                                     <div className="flex gap-3 pt-2">

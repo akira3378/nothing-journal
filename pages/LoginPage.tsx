@@ -154,7 +154,7 @@ const LoginPage: React.FC<LoginProps> = ({ onLoginSuccess }) => {
                                         value={email}
                                         onChange={(e) => setEmail(e.target.value)}
                                         className="mt-1 block w-full bg-white dark:bg-black border border-zinc-300 dark:border-zinc-700 rounded-sm py-3 px-4 text-black dark:text-white placeholder-zinc-400 dark:placeholder-zinc-700 focus:outline-none focus:border-black dark:focus:border-white transition-colors disabled:opacity-50"
-                                        placeholder="member@nothing.tech"
+                                        placeholder={t('member_email_placeholder')}
                                     />
                                 </div>
                                 <button
@@ -196,7 +196,7 @@ const LoginPage: React.FC<LoginProps> = ({ onLoginSuccess }) => {
                                         value={otp}
                                         onChange={(e) => setOtp(e.target.value.replace(/[^0-9]/g, ''))}
                                         className="mt-1 block w-full bg-white dark:bg-black border border-zinc-300 dark:border-zinc-700 rounded-sm py-3 px-4 text-black dark:text-white text-center text-2xl tracking-[0.5em] font-mono focus:outline-none focus:border-black dark:focus:border-white transition-colors disabled:opacity-50"
-                                        placeholder="000000"
+                                        placeholder={t('verification_code_placeholder')}
                                     />
                                 </div>
 
