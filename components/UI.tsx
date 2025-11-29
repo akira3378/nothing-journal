@@ -129,6 +129,13 @@ export const Icons = {
             <circle cx="11" cy="11" r="8"></circle>
             <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
         </svg>
+    ),
+    RefreshCw: ({ className }: { className?: string }) => (
+        <svg className={className} width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+            <polyline points="23 4 23 10 17 10"></polyline>
+            <polyline points="1 20 1 14 7 14"></polyline>
+            <path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"></path>
+        </svg>
     )
 };
 
@@ -334,7 +341,7 @@ export const ToastProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     return (
         <ToastContext.Provider value={{ addToast, removeToast }}>
             {children}
-            <div className="fixed top-4 right-4 z-[200] flex flex-col gap-2 pointer-events-none w-full max-w-xs sm:max-w-sm px-4 sm:px-0">
+            <div className="fixed top-20 right-4 z-[200] flex flex-col gap-2 pointer-events-none w-full max-w-xs sm:max-w-sm px-4 sm:px-0">
                 {toasts.map(toast => (
                     <div
                         key={toast.id}

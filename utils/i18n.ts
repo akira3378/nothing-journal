@@ -16,7 +16,7 @@ const translations = {
     logout: '登出',
     // Landing Page (Unified English as per design request)
     landing_hero_1: 'NOTHING',
-    landing_hero_2: 'Live the way you like.',
+    landing_hero_2: 'Everything both nothing.',
     landing_btn: '申请入驻',
     transmissions: '信号传输',
     footer_rights: 'NOTHING CORP. 版权所有.',
@@ -68,6 +68,7 @@ const translations = {
     renewal_fail: '提交失败，请重试。',
 
     // Feed
+    new_posts_available: '新动态',
     whats_on_mind: '分享你的旅程...',
     share_placeholder: '写点什么...',
     image: '图片',
@@ -136,10 +137,13 @@ const translations = {
     PENDING: '审核中',
     ACTIVE: '活跃',
     REJECTED: '已拒绝',
-    DELETED: '已删除',
+    DELETED: '已停用',
     EXPIRED: '已过期',
     USER: '用户',
     ADMIN: '管理员',
+    deactivate: '停用',
+    activate: '启用',
+    filter_role: '筛选角色',
     // Admin Dashboard
     control_center: '控制中心',
     new_applications: '新申请',
@@ -224,7 +228,7 @@ const translations = {
     logout: 'Logout',
     // Landing Page
     landing_hero_1: 'NOTHING',
-    landing_hero_2: 'Live the way you like.',
+    landing_hero_2: 'Everything both nothing.',
     landing_btn: 'Become a Member',
     transmissions: 'Transmissions',
     footer_rights: 'NOTHING CORP. All rights reserved.',
@@ -276,6 +280,7 @@ const translations = {
     renewal_fail: 'Submission failed. Please try again.',
 
     // Feed
+    new_posts_available: 'New Posts Available',
     whats_on_mind: 'Share your journey...',
     share_placeholder: 'Write something...',
     image: 'Image',
@@ -344,10 +349,13 @@ const translations = {
     PENDING: 'PENDING',
     ACTIVE: 'ACTIVE',
     REJECTED: 'REJECTED',
-    DELETED: 'DELETED',
+    DELETED: 'DEACTIVATED',
     EXPIRED: 'EXPIRED',
     USER: 'USER',
     ADMIN: 'ADMIN',
+    deactivate: 'Deactivate',
+    activate: 'Activate',
+    filter_role: 'Filter Role',
     // Admin Dashboard
     control_center: 'Control Center',
     new_applications: 'New Applications',

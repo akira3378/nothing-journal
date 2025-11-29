@@ -1,11 +1,15 @@
 
 import React, { useEffect, useRef, useState } from 'react';
 import { User, Post, Comment } from '../types';
-import { getFeed, createPost, deletePost, toggleLike, getComments, addComment, deleteComment } from '../services/mockBackend';
+import { getFeed, createPost, deletePost, toggleLike, getComments, addComment, deleteComment, subscribeToFeed } from '../services/mockBackend';
 import { useApp } from '../utils/i18n';
+import { useFeed } from '../hooks/useData';
 import { ImagePreview } from '../components/ImagePreview';
 import { formatLocalTime, formatRelativeTime } from '../utils/formatters';
-import { Button, Spinner, useToast, Icons } from '../components/UI';
+
+import { useToast, Icons } from '../components/UI';
+import { Button, Input, Spin, Image, Upload, message, Avatar, Popconfirm } from 'antd';
+import imageCompression from 'browser-image-compression';
 
 interface FeedProps {
     user: User;
@@ -22,12 +26,14 @@ const ImageGrid: React.FC<{ imageUrls: string[] }> = ({ imageUrls }) => {
     if (count === 1) {
         return (
             <div className="mt-3 mb-1">
-                <ImagePreview
-                    src={imageUrls[0]}
-                    alt={t('post_attachment')}
-                    className="rounded-sm w-full h-auto max-h-[500px] overflow-hidden bg-zinc-100 dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800"
-                    thumbnailClassName="w-full h-full object-cover"
-                />
+                <div className="mt-3 mb-1">
+                    <Image
+                        src={imageUrls[0]}
+                        alt={t('post_attachment')}
+                        className="rounded-sm w-full h-auto max-h-[500px] overflow-hidden bg-zinc-100 dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800"
+                        width="100%"
+                    />
+                </div>
             </div>
         );
     }
@@ -44,16 +50,19 @@ const ImageGrid: React.FC<{ imageUrls: string[] }> = ({ imageUrls }) => {
 
     return (
         <div className={`grid ${gridClass} gap-0.5 mt-3 mb-1 rounded-sm overflow-hidden border border-zinc-200 dark:border-zinc-800`}>
-            {imageUrls.map((url, index) => (
-                <div key={index} className="aspect-square relative overflow-hidden bg-zinc-100 dark:bg-zinc-800">
-                    <ImagePreview
-                        src={url}
-                        alt={`${t('attachment')} ${index + 1}`}
-                        className="w-full h-full"
-                        thumbnailClassName="w-full h-full object-cover hover:scale-105 transition-transform duration-500"
-                    />
-                </div>
-            ))}
+            <Image.PreviewGroup>
+                {imageUrls.map((url, index) => (
+                    <div key={index} className="aspect-square relative overflow-hidden bg-zinc-100 dark:bg-zinc-800">
+                        <Image
+                            src={url}
+                            alt={`${t('attachment')} ${index + 1}`}
+                            className="w-full h-full object-cover hover:scale-105 transition-transform duration-500"
+                            width="100%"
+                            height="100%"
+                        />
+                    </div>
+                ))}
+            </Image.PreviewGroup>
         </div>
     );
 };
@@ -115,12 +124,18 @@ const CommentItem: React.FC<CommentItemProps> = ({
                                 </span>
                             </div>
                             {(currentUser.role === 'ADMIN' || currentUser.id === comment.userId) && (
-                                <button
-                                    onClick={() => onDelete(comment.id)}
-                                    className="text-zinc-300 hover:text-red-500 transition-colors opacity-0 group-hover/comment:opacity-100"
+                                <Popconfirm
+                                    title={t('delete_confirm')}
+                                    onConfirm={() => onDelete(comment.id)}
+                                    okText={t('delete')}
+                                    cancelText={t('cancel')}
                                 >
-                                    <Icons.X className="w-3 h-3" />
-                                </button>
+                                    <button
+                                        className="text-zinc-300 hover:text-red-500 transition-colors opacity-0 group-hover/comment:opacity-100"
+                                    >
+                                        <Icons.X className="w-3 h-3" />
+                                    </button>
+                                </Popconfirm>
                             )}
                         </div>
                         <p className={`text-zinc-700 dark:text-zinc-300 leading-relaxed break-words ${depth === 0 ? 'text-sm' : 'text-xs'}`}>
@@ -270,7 +285,6 @@ export const FeedItem: React.FC<{ post: Post & { user?: User }; currentUser: Use
     };
 
     const handleDeleteComment = async (commentId: string) => {
-        if (!confirm(t('delete_confirm'))) return;
         try {
             await deleteComment(commentId);
             // Small delay to ensure DB propagation
@@ -295,14 +309,12 @@ export const FeedItem: React.FC<{ post: Post & { user?: User }; currentUser: Use
     };
 
     const handleDelete = async () => {
-        if (confirm(t('delete_confirm'))) {
-            try {
-                await deletePost(post.id);
-                onDelete(post.id);
-                addToast('Post deleted', 'success');
-            } catch (e) {
-                addToast(t('delete_failed'), 'error');
-            }
+        try {
+            await deletePost(post.id);
+            onDelete(post.id);
+            addToast('Post deleted', 'success');
+        } catch (e) {
+            addToast(t('delete_failed'), 'error');
         }
     };
 
@@ -321,11 +333,10 @@ export const FeedItem: React.FC<{ post: Post & { user?: User }; currentUser: Use
                     <div className="flex items-center gap-4">
                         <div className="h-12 w-12 rounded-full bg-zinc-100 dark:bg-zinc-800 flex items-center justify-center border-2 border-white dark:border-zinc-900 shadow-sm shrink-0 overflow-hidden">
                             {post.user?.avatarUrl ? (
-                                <ImagePreview
+                                <Avatar
                                     src={post.user.avatarUrl}
                                     alt="Avatar"
                                     className="h-full w-full"
-                                    thumbnailClassName="h-full w-full object-cover"
                                 />
                             ) : (
                                 <span className="font-bold text-zinc-500 dark:text-zinc-400 text-lg">{post.user?.nickname?.charAt(0).toUpperCase() || '?'}</span>
@@ -360,9 +371,16 @@ export const FeedItem: React.FC<{ post: Post & { user?: User }; currentUser: Use
                     </div>
 
                     {canDelete && (
-                        <button onClick={handleDelete} className="text-zinc-300 hover:text-red-500 transition-colors p-2 rounded-full hover:bg-red-50 dark:hover:bg-red-900/20 opacity-0 group-hover:opacity-100">
-                            <Icons.X className="w-4 h-4" />
-                        </button>
+                        <Popconfirm
+                            title={t('delete_confirm')}
+                            onConfirm={handleDelete}
+                            okText={t('delete')}
+                            cancelText={t('cancel')}
+                        >
+                            <button className="text-zinc-300 hover:text-red-500 transition-colors p-2 rounded-full hover:bg-red-50 dark:hover:bg-red-900/20 opacity-0 group-hover:opacity-100">
+                                <Icons.X className="w-4 h-4" />
+                            </button>
+                        </Popconfirm>
                     )}
                 </div>
 
@@ -414,7 +432,7 @@ export const FeedItem: React.FC<{ post: Post & { user?: User }; currentUser: Use
                     <div className="p-6 pl-[88px]">
                         {commentsLoading ? (
                             <div className="flex items-center justify-center py-6">
-                                <Spinner size="sm" />
+                                <Spin size="small" />
                             </div>
                         ) : (
                             <div className="space-y-6 mb-6 max-h-[500px] overflow-y-auto custom-scrollbar pr-2">
@@ -451,13 +469,13 @@ export const FeedItem: React.FC<{ post: Post & { user?: User }; currentUser: Use
                                         placeholder={t('write_comment')}
                                         className="w-full bg-zinc-100 dark:bg-zinc-800 border-none rounded-full px-4 py-2.5 text-sm outline-none text-black dark:text-white placeholder-zinc-400 focus:ring-1 focus:ring-black dark:focus:ring-white transition-all"
                                     />
-                                    <button
-                                        type="submit"
+                                    <Button
+                                        type="text"
+                                        htmlType="submit"
                                         disabled={sendingComment || !commentInput.trim()}
-                                        className="absolute right-2 top-1/2 -translate-y-1/2 p-1.5 bg-black dark:bg-white text-white dark:text-black rounded-full disabled:opacity-30 disabled:bg-zinc-300 dark:disabled:bg-zinc-700 transition-all hover:scale-105"
-                                    >
-                                        {sendingComment ? <Spinner size="sm" className="border-white dark:border-black" /> : <Icons.ChevronDown className="w-3 h-3 -rotate-90" />}
-                                    </button>
+                                        className="absolute right-2 top-1/2 -translate-y-1/2 p-0 h-auto hover:bg-transparent"
+                                        icon={sendingComment ? <Spin size="small" /> : <Icons.ChevronDown className="w-3 h-3 -rotate-90" />}
+                                    />
                                 </div>
                             </form>
                         </fieldset>
@@ -471,14 +489,13 @@ export const FeedItem: React.FC<{ post: Post & { user?: User }; currentUser: Use
 const FeedPage: React.FC<FeedProps> = ({ user }) => {
     const { t } = useApp();
     const { addToast } = useToast();
-    const [posts, setPosts] = useState<(Post & { user?: User })[]>([]);
+    const { posts, error, isLoading, isLoadingMore, isReachingEnd, size, setSize, mutate } = useFeed();
     const [newContent, setNewContent] = useState('');
-    const [loading, setLoading] = useState(true);
     const [submitting, setSubmitting] = useState(false);
 
     // Infinite Scroll State
-    const [page, setPage] = useState(1);
-    const [hasMore, setHasMore] = useState(true);
+    // const [page, setPage] = useState(1); // Managed by SWR
+    // const [hasMore, setHasMore] = useState(true); // Managed by SWR
     const observerTarget = useRef(null);
 
     const [selectedFiles, setSelectedFiles] = useState<File[]>([]);
@@ -490,39 +507,35 @@ const FeedPage: React.FC<FeedProps> = ({ user }) => {
 
     const [newPostId, setNewPostId] = useState<string | null>(null);
 
-    const fetchPosts = async (currentPage: number, reset: boolean = false) => {
-        if (!reset && loading) return;
+    const [newPostsCount, setNewPostsCount] = useState(0);
 
-        if (currentPage === 1) setLoading(true);
-
-        const { data } = await getFeed(currentPage, 10);
-
-        if (reset) {
-            setPosts(data);
-        } else {
-            setPosts(prev => [...prev, ...data]);
-        }
-
-        setHasMore(data.length > 0);
-        setLoading(false);
-    };
+    // fetchPosts is no longer needed, SWR handles it.
 
     useEffect(() => {
-        fetchPosts(1, true);
+        // Subscribe to new posts
+        const sub = subscribeToFeed(() => {
+            setNewPostsCount(prev => prev + 1);
+        }, user?.id);
+
         return () => {
             previewUrls.forEach(url => URL.revokeObjectURL(url));
+            if (sub) sub.unsubscribe();
         };
     }, []);
+
+    const handleRefreshFeed = () => {
+        // setPage(1);
+        // fetchPosts(1, true);
+        mutate(); // Revalidate SWR
+        window.scrollTo({ top: 0, behavior: 'smooth' });
+        setNewPostsCount(0);
+    };
 
     useEffect(() => {
         const observer = new IntersectionObserver(
             entries => {
-                if (entries[0].isIntersecting && hasMore && !loading) {
-                    setPage(prev => {
-                        const nextPage = prev + 1;
-                        fetchPosts(nextPage);
-                        return nextPage;
-                    });
+                if (entries[0].isIntersecting && !isReachingEnd && !isLoadingMore) {
+                    setSize(size + 1);
                 }
             },
             { threshold: 1.0 }
@@ -535,12 +548,42 @@ const FeedPage: React.FC<FeedProps> = ({ user }) => {
         return () => {
             if (observerTarget.current) observer.unobserve(observerTarget.current);
         };
-    }, [hasMore, loading]);
+    }, [isReachingEnd, isLoadingMore, size, setSize]);
 
-    const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const handleFileSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
         if (e.target.files && e.target.files.length > 0) {
-            const newFiles = Array.from(e.target.files);
-            const totalFiles = [...selectedFiles, ...newFiles].slice(0, 4);
+            const rawFiles = Array.from(e.target.files);
+
+            // Compression options
+            const options = {
+                maxSizeMB: 0.8, // Target < 0.8MB
+                maxWidthOrHeight: 1920, // Resize if larger than 1920px
+                useWebWorker: true,
+                fileType: 'image/webp' // Use WebP for better efficiency
+            };
+
+            // Show loading or toast if needed, but for now we just process
+            // Ideally we should have a loading state for compression
+
+            const compressedFiles = await Promise.all(rawFiles.map(async (file: File) => {
+                try {
+                    // Only compress images
+                    if (!file.type.startsWith('image/')) return file;
+
+                    // Compress
+                    const compressedFile = await imageCompression(file, options);
+
+                    // Create a new File object to preserve name (browser-image-compression returns Blob)
+                    // and change extension to .webp if converted
+                    const newName = file.name.replace(/\.[^/.]+$/, "") + ".webp";
+                    return new File([compressedFile], newName, { type: 'image/webp' });
+                } catch (error) {
+                    console.error("Compression failed for", file.name, error);
+                    return file; // Fallback to original
+                }
+            }));
+
+            const totalFiles = [...selectedFiles, ...compressedFiles].slice(0, 4);
 
             setSelectedFiles(totalFiles);
             previewUrls.forEach(u => URL.revokeObjectURL(u));
@@ -569,27 +612,40 @@ const FeedPage: React.FC<FeedProps> = ({ user }) => {
                     const response = await fetch(`https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lon}`);
                     const data = await response.json();
 
-                    if (data && data.address) {
-                        const city = data.address.city || data.address.town || data.address.village;
-                        const district = data.address.suburb || data.address.county || '';
-
-                        let displayLoc = city;
-                        if (city && district) displayLoc = `${city}, ${district}`;
-                        else if (!city) displayLoc = district || `${lat.toFixed(2)}, ${lon.toFixed(2)}`;
-
-                        setLocation(displayLoc);
+                    if (data && data.address && data.address.country) {
+                        setLocation(data.address.country);
                     } else {
-                        setLocation(`${lat.toFixed(4)}, ${lon.toFixed(4)}`);
+                        // If country is not found, we do not show specific coordinates anymore per request
+                        addToast(t('loc_fetch_fail'), 'error');
                     }
                 } catch (e) {
-                    setLocation(`${lat.toFixed(4)}, ${lon.toFixed(4)}`);
+                    addToast(t('loc_fetch_fail'), 'error');
                 } finally {
                     setLocationLoading(false);
                 }
             }, (err) => {
-                addToast(t('loc_fetch_fail'), 'error');
+                let errorMessage = t('loc_fetch_fail');
+
+                // Provide specific error messages based on error code
+                switch (err.code) {
+                    case err.PERMISSION_DENIED:
+                        errorMessage = '位置权限被拒绝，请在浏览器设置中允许位置访问 / Location permission denied';
+                        break;
+                    case err.POSITION_UNAVAILABLE:
+                        errorMessage = '位置信息不可用 / Location unavailable';
+                        break;
+                    case err.TIMEOUT:
+                        errorMessage = '获取位置超时 / Location timeout';
+                        break;
+                }
+
+                addToast(errorMessage, 'error');
                 setLocationLoading(false);
-            }, { timeout: 10000 });
+            }, {
+                timeout: 10000,
+                enableHighAccuracy: false,
+                maximumAge: 30000
+            });
         } else {
             addToast(t('geo_not_supported'), 'error');
             setLocationLoading(false);
@@ -618,7 +674,14 @@ const FeedPage: React.FC<FeedProps> = ({ user }) => {
             };
 
             setNewPostId(newId);
-            setPosts(prev => [optimisticPost, ...prev]);
+
+            // SWR Optimistic Update
+            mutate((currentData: any) => {
+                if (!currentData) return [[optimisticPost]];
+                // Prepend to the first page
+                const firstPage = [optimisticPost, ...currentData[0]];
+                return [firstPage, ...currentData.slice(1)];
+            }, false); // false = don't revalidate immediately
 
             setNewContent('');
             setSelectedFiles([]);
@@ -627,6 +690,9 @@ const FeedPage: React.FC<FeedProps> = ({ user }) => {
 
             addToast(t('content_published'), "success");
             setTimeout(() => setNewPostId(null), 2000);
+
+            // Trigger revalidation to get real data
+            mutate();
 
         } catch (error) {
             addToast(t('post_fail'), "error");
@@ -649,11 +715,13 @@ const FeedPage: React.FC<FeedProps> = ({ user }) => {
                                         {user.avatarUrl ? <img src={user.avatarUrl} className="w-full h-full object-cover" /> : user.nickname.charAt(0)}
                                     </div>
                                     <div className="flex-1">
-                                        <textarea
-                                            className="w-full bg-transparent border-none p-2 text-base text-black dark:text-white focus:outline-none resize-none h-24 placeholder-zinc-400 leading-relaxed"
+                                        <Input.TextArea
+                                            className="w-full bg-transparent border-none p-2 text-base text-black dark:text-white focus:shadow-none resize-none placeholder-zinc-400 leading-relaxed !bg-transparent !border-0 !shadow-none focus:!bg-transparent"
                                             placeholder={t('share_placeholder')}
                                             value={newContent}
                                             onChange={(e) => setNewContent(e.target.value)}
+                                            autoSize={{ minRows: 3, maxRows: 6 }}
+                                            variant="borderless"
                                         />
 
                                         {/* Attachments Preview */}
@@ -708,15 +776,16 @@ const FeedPage: React.FC<FeedProps> = ({ user }) => {
                                         className={`p-2 rounded-full transition-colors ${location ? 'text-blue-500 bg-blue-50 dark:bg-blue-900/20' : 'text-zinc-500 hover:text-black dark:hover:text-white hover:bg-zinc-200 dark:hover:bg-zinc-800'}`}
                                         title={t('location')}
                                     >
-                                        {locationLoading ? <Spinner size="sm" /> : <Icons.MapPin className="w-5 h-5" />}
+                                        {locationLoading ? <Spin size="small" /> : <Icons.MapPin className="w-5 h-5" />}
                                     </button>
                                 </div>
 
                                 <Button
-                                    type="submit"
+                                    type="primary"
+                                    htmlType="submit"
                                     disabled={submitting || (!newContent.trim() && selectedFiles.length === 0)}
-                                    isLoading={submitting}
-                                    size="sm"
+                                    loading={submitting}
+                                    size="small"
                                     className="px-6 rounded-full font-bold shadow-none"
                                 >
                                     {t('publish')}
@@ -729,9 +798,21 @@ const FeedPage: React.FC<FeedProps> = ({ user }) => {
 
             {/* Feed Stream */}
             <div className="space-y-6">
-                {loading && page === 1 ? (
+                {newPostsCount > 0 && (
+                    <div className="flex justify-center animate-fadeIn">
+                        <button
+                            onClick={handleRefreshFeed}
+                            className="bg-blue-500 hover:bg-blue-600 text-white px-4 py-2 rounded-full shadow-lg flex items-center gap-2 text-sm font-bold transition-all transform hover:scale-105"
+                        >
+                            <Icons.RefreshCw className="w-4 h-4" />
+                            <span>{newPostsCount} {t('new_posts_available')}</span>
+                        </button>
+                    </div>
+                )}
+
+                {isLoading ? (
                     <div className="flex flex-col items-center py-12">
-                        <Spinner size="lg" />
+                        <Spin size="large" />
                         <p className="text-[10px] font-mono text-zinc-400 mt-4 tracking-widest">{t('syncing_data')}</p>
                     </div>
                 ) : (!posts || posts.length === 0) ? (
@@ -750,26 +831,33 @@ const FeedPage: React.FC<FeedProps> = ({ user }) => {
                                 <FeedItem
                                     post={post}
                                     currentUser={user}
-                                    onDelete={(id) => setPosts(prev => prev.filter(p => p.id !== id))}
+                                    onDelete={async (id) => {
+                                        await mutate((currentData: any) => {
+                                            if (!currentData) return [];
+                                            return currentData.map((page: Post[]) => page.filter(p => p.id !== id));
+                                        }, false);
+                                    }}
                                 />
                             </div>
                         ))}
 
                         <div ref={observerTarget} className="py-8 text-center flex justify-center">
-                            {hasMore ? (
-                                <Spinner size="md" className="opacity-50" />
-                            ) : (
+                                    {isLoadingMore ? (
+                                <Spin size="default" className="opacity-50" />
+                                    ) : isReachingEnd ? (
                                 <div className="flex items-center gap-4 w-full justify-center">
                                     <div className="h-px bg-zinc-200 dark:bg-zinc-800 w-12"></div>
                                     <span className="text-[10px] text-zinc-300 dark:text-zinc-600 tracking-widest uppercase font-mono">{t('end_of_feed')}</span>
                                     <div className="h-px bg-zinc-200 dark:bg-zinc-800 w-12"></div>
                                 </div>
+                                        ) : (
+                                            <div className="h-8"></div> // Spacer for observer
                             )}
                         </div>
                     </>
                 )}
             </div>
-        </div>
+        </div >
     );
 };
 

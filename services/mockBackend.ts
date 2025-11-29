@@ -176,9 +176,14 @@ const compressImage = async (file: File): Promise<File> => {
         const options = {
             maxSizeMB: 1,
             maxWidthOrHeight: 1920,
-            useWebWorker: true
+            useWebWorker: true,
+            fileType: 'image/webp' // Force WebP
         };
-        return await imageCompression(file, options);
+        const compressedBlob = await imageCompression(file, options);
+
+        // Rename to .webp
+        const newName = file.name.replace(/\.[^/.]+$/, "") + ".webp";
+        return new File([compressedBlob], newName, { type: 'image/webp' });
     } catch (error) {
         console.error("Compression failed", error);
         return file;
@@ -351,7 +356,8 @@ export const createProfile = async (data: { nickname: string; jobTags: string[];
             expiration_date: '2026-05-01T00:00:00Z',
             is_renewal: false,
             country: data.country,
-            city: data.city
+            city: data.city,
+            last_login: new Date().toISOString()
         });
 
         if (dbError) {
@@ -892,25 +898,41 @@ export const addComment = async (postId: string, content: string, parentId?: str
     if (error) throw error;
 
     // --- Trigger Notification Logic ---
-    // 1. Get post owner
-    const { data: post } = await supabase.from('posts').select('user_id').eq('id', postId).single();
+    try {
+        // 1. Get post owner
+        const { data: post } = await supabase.from('posts').select('user_id').eq('id', postId).single();
 
-    // 2. If post owner exists and is NOT the commenter
-    if (post && post.user_id !== user.id) {
-        // Wrap in try-catch to avoid breaking comment flow if notifications table is missing
-        try {
+        // 2. Notify Post Owner (if not self)
+        if (post && post.user_id !== user.id) {
             await supabase.from('notifications').insert({
-                user_id: post.user_id, // Receiver (Post Owner)
-                trigger_user_id: user.id, // Sender (Commenter)
+                user_id: post.user_id,
+                trigger_user_id: user.id,
                 type: 'COMMENT',
-                content: content, // Store snippet of comment
+                content: content,
                 related_post_id: postId,
                 related_comment_id: commentData.id,
                 is_read: false
             });
-        } catch (notifErr) {
-            console.warn("Failed to create notification", notifErr);
         }
+
+        // 3. Notify Parent Comment Author (if replying and not self, and not same as post owner to avoid double notif)
+        if (parentId) {
+            const { data: parentComment } = await supabase.from('comments').select('user_id').eq('id', parentId).single();
+
+            if (parentComment && parentComment.user_id !== user.id && parentComment.user_id !== post?.user_id) {
+                await supabase.from('notifications').insert({
+                    user_id: parentComment.user_id,
+                    trigger_user_id: user.id,
+                    type: 'COMMENT', // Could distinguish 'REPLY' if needed, but 'COMMENT' is fine for now
+                    content: content,
+                    related_post_id: postId,
+                    related_comment_id: commentData.id,
+                    is_read: false
+                });
+            }
+        }
+    } catch (notifErr) {
+        console.warn("Failed to create notification", notifErr);
     }
 };
 
@@ -958,7 +980,8 @@ export const getNotifications = async (): Promise<Notification[]> => {
 
 export const markNotificationRead = async (id: string) => {
     if (!supabase) return;
-    await supabase.from('notifications').update({ is_read: true }).eq('id', id);
+    const { error } = await supabase.from('notifications').update({ is_read: true }).eq('id', id);
+    if (error) console.error("Failed to mark notification as read:", error);
 };
 
 // --- Realtime Subscriptions ---
@@ -972,8 +995,61 @@ export const subscribeToNotifications = (userId: string, onData: (data: any) => 
             schema: 'public',
             table: 'notifications',
             filter: `user_id=eq.${userId}`
-        }, payload => {
-            onData(payload.new);
+        }, async (payload) => {
+            const raw = payload.new;
+
+            // SAFETY CHECK: Ensure this notification is actually for the current user
+            // This prevents receiving notifications meant for others if the RLS/Filter fails
+            if (raw.user_id !== userId) return;
+
+            // SAFETY CHECK: Ensure the trigger user is not the current user
+            // This prevents self-notifications (e.g. if I comment on my own post and logic is buggy)
+            if (raw.trigger_user_id === userId) return;
+
+            // Fetch trigger user details
+            let triggerUser = undefined;
+            if (raw.trigger_user_id) {
+                const { data } = await supabase.from('profiles').select('nickname, avatar_url').eq('id', raw.trigger_user_id).single();
+                if (data) {
+                    triggerUser = {
+                        nickname: data.nickname,
+                        avatarUrl: data.avatar_url
+                    };
+                }
+            }
+
+            // Format to match Notification interface (camelCase)
+            const formattedNotification = {
+                id: raw.id,
+                userId: raw.user_id,
+                triggerUserId: raw.trigger_user_id,
+                triggerUser: triggerUser,
+                type: raw.type,
+                content: raw.content,
+                relatedPostId: raw.related_post_id,
+                relatedCommentId: raw.related_comment_id,
+                isRead: raw.is_read,
+                createdAt: new Date(raw.created_at).getTime()
+            };
+
+            onData(formattedNotification);
+        })
+        .subscribe();
+};
+
+export const subscribeToFeed = (onNewPost: () => void, currentUserId?: string): RealtimeChannel | null => {
+    if (!supabase) return null;
+    return supabase
+        .channel('public:posts')
+        .on('postgres_changes', {
+            event: 'INSERT',
+            schema: 'public',
+            table: 'posts'
+        }, (payload) => {
+            if (currentUserId && payload.new.user_id === currentUserId) {
+                return; // Ignore own posts
+            }
+            onNewPost();
         })
         .subscribe();
 };

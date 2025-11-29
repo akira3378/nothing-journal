@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { sendOtp, verifyOtp, createProfile, getSession, logout } from '../services/mockBackend';
 import { useApp } from '../utils/i18n';
 import { Icons } from '../components/UI';
+import { Select } from 'antd';
 import { Country, City } from 'country-state-city';
 
 const RegisterPage: React.FC = () => {
@@ -15,9 +16,6 @@ const RegisterPage: React.FC = () => {
     const [nickname, setNickname] = useState('');
     const [tagInput, setTagInput] = useState('');
     const [tags, setTags] = useState<string[]>([]);
-    const [country, setCountry] = useState('');
-    const [city, setCity] = useState('');
-    const [countryCode, setCountryCode] = useState('');
 
     // Files
     const [credFile, setCredFile] = useState<File | null>(null);
@@ -30,6 +28,9 @@ const RegisterPage: React.FC = () => {
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState('');
     const [countdown, setCountdown] = useState(0);
+    const [country, setCountry] = useState<string | null>(null);
+    const [city, setCity] = useState<string | null>(null);
+    const [countryCode, setCountryCode] = useState('');
 
     useEffect(() => {
         if (countdown > 0) {
@@ -37,6 +38,17 @@ const RegisterPage: React.FC = () => {
             return () => clearTimeout(timer);
         }
     }, [countdown]);
+
+    useEffect(() => {
+        if (country) {
+            const c = Country.getAllCountries().find(c => c.name === country);
+            setCountryCode(c ? c.isoCode : '');
+            setCity(null);
+        } else {
+            setCountryCode('');
+            setCity(null);
+        }
+    }, [country]);
 
     useEffect(() => {
         // Check if session exists (e.g. reload during profile fill)
@@ -152,8 +164,8 @@ const RegisterPage: React.FC = () => {
                 jobTags: tags,
                 credentialFile: credFile,
                 avatarFile: avatarFile || undefined,
-                country,
-                city
+                country: country || '',
+                city: city || ''
             });
 
             if (res.success) {
@@ -186,7 +198,7 @@ const RegisterPage: React.FC = () => {
                         {step === 'fill_profile' ? t('complete_reg') : step === 'submitted' ? t('pending_title') : t('apply_membership')}
                     </h2>
                     <p className="mt-2 text-sm text-zinc-500">
-                        {step === 'fill_profile' ? `${email}` : step === 'submitted' ? '' : t('join_2000')}
+                        {step === 'fill_profile' ? `${email} ` : step === 'submitted' ? '' : t('join_2000')}
                     </p>
                 </div>
 
@@ -234,7 +246,7 @@ const RegisterPage: React.FC = () => {
                                             disabled={countdown > 0 || loading}
                                             className="text-xs font-bold text-black dark:text-white hover:underline disabled:opacity-50 disabled:no-underline"
                                         >
-                                            {countdown > 0 ? `RESEND IN ${countdown}s` : 'RESEND CODE'}
+                                            {countdown > 0 ? `RESEND IN ${countdown} s` : 'RESEND CODE'}
                                         </button>
                                     </div>
                                     <input
@@ -291,41 +303,37 @@ const RegisterPage: React.FC = () => {
                                 {/* Location */}
                                 <div>
                                     <label className="block text-xs font-bold text-zinc-500 uppercase tracking-wider mb-1">{t('location')}</label>
-                                    <div className="grid grid-cols-2 gap-4">
+                                    <div className="space-y-4">
                                         <div>
-                                            <input
-                                                list="country-list"
-                                                value={country}
-                                                onChange={(e) => {
-                                                    const val = e.target.value;
-                                                    setCountry(val);
-                                                    const c = Country.getAllCountries().find(c => c.name === val);
-                                                    setCountryCode(c ? c.isoCode : '');
-                                                    setCity('');
-                                                }}
-                                                className="mt-1 block w-full bg-gray-50 dark:bg-black border border-zinc-300 dark:border-zinc-700 rounded-sm py-3 px-4 text-black dark:text-white focus:border-black dark:focus:border-white focus:outline-none transition-colors placeholder-zinc-400 dark:placeholder-zinc-700 disabled:opacity-50"
+                                            <label className="block text-xs font-bold text-zinc-500 uppercase mb-1">{t('select_country')}</label>
+                                            <Select
+                                                showSearch
+                                                style={{ width: '100%' }}
                                                 placeholder={t('select_country')}
+                                                optionFilterProp="children"
+                                                value={country}
+                                                onChange={setCountry}
+                                                filterOption={(input, option) =>
+                                                    (option?.label ?? '').toLowerCase().includes(input.toLowerCase())
+                                                }
+                                                options={Country.getAllCountries().map(c => ({ value: c.name, label: c.name }))}
                                             />
-                                            <datalist id="country-list">
-                                                {Country.getAllCountries().map(c => (
-                                                    <option key={c.isoCode} value={c.name} />
-                                                ))}
-                                            </datalist>
                                         </div>
                                         <div>
-                                            <input
-                                                list="city-list"
-                                                value={city}
-                                                onChange={(e) => setCity(e.target.value)}
-                                                disabled={!countryCode}
-                                                className="mt-1 block w-full bg-gray-50 dark:bg-black border border-zinc-300 dark:border-zinc-700 rounded-sm py-3 px-4 text-black dark:text-white focus:border-black dark:focus:border-white focus:outline-none transition-colors placeholder-zinc-400 dark:placeholder-zinc-700 disabled:opacity-50"
+                                            <label className="block text-xs font-bold text-zinc-500 uppercase mb-1">{t('select_city')}</label>
+                                            <Select
+                                                showSearch
+                                                style={{ width: '100%' }}
                                                 placeholder={t('select_city')}
+                                                optionFilterProp="children"
+                                                value={city}
+                                                onChange={setCity}
+                                                disabled={!countryCode}
+                                                filterOption={(input, option) =>
+                                                    (option?.label ?? '').toLowerCase().includes(input.toLowerCase())
+                                                }
+                                                options={countryCode ? City.getCitiesOfCountry(countryCode)?.map(c => ({ value: c.name, label: c.name })) : []}
                                             />
-                                            <datalist id="city-list">
-                                                {countryCode && City.getCitiesOfCountry(countryCode)?.map(c => (
-                                                    <option key={c.name} value={c.name} />
-                                                ))}
-                                            </datalist>
                                         </div>
                                     </div>
                                 </div>

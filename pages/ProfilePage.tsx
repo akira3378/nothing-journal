@@ -1,10 +1,11 @@
-
 import React, { useState, useEffect } from 'react';
 import { User, UserStatus, Post } from '../types';
 import { updateUserProfile, getUserPosts } from '../services/mockBackend';
+import { useUserPosts } from '../hooks/useData';
 import { useApp } from '../utils/i18n';
 import { ImagePreview } from '../components/ImagePreview';
 import { Icons, Spinner } from '../components/UI';
+import { Select } from 'antd';
 import { FeedItem } from './FeedPage'; // Reusing FeedItem
 import { Country, City } from 'country-state-city';
 
@@ -31,23 +32,22 @@ const ProfilePage: React.FC<ProfileProps> = ({ user }) => {
     }, [country]);
 
     // Posts State
-    const [myPosts, setMyPosts] = useState<(Post & { user?: User })[]>([]);
-    const [loadingPosts, setLoadingPosts] = useState(false);
+    const { posts: myPosts, isLoading: loadingPosts, mutate } = useUserPosts(user.id);
 
-    useEffect(() => {
-        const fetchMyPosts = async () => {
-            setLoadingPosts(true);
-            try {
-                const posts = await getUserPosts(user.id);
-                setMyPosts(posts);
-            } catch (e) {
-                console.error(t('fetch_posts_fail'));
-            } finally {
-                setLoadingPosts(false);
-            }
-        };
-        fetchMyPosts();
-    }, [user.id]);
+    // useEffect(() => {
+    //     const fetchMyPosts = async () => {
+    //         setLoadingPosts(true);
+    //         try {
+    //             const posts = await getUserPosts(user.id);
+    //             setMyPosts(posts);
+    //         } catch (e) {
+    //             console.error(t('fetch_posts_fail'));
+    //         } finally {
+    //             setLoadingPosts(false);
+    //         }
+    //     };
+    //     fetchMyPosts();
+    // }, [user.id]);
 
     const handleAddTag = () => {
         if (tags.length >= 3) return;
@@ -217,41 +217,42 @@ const ProfilePage: React.FC<ProfileProps> = ({ user }) => {
                                         />
                                     </div>
 
-                                    <div className="mb-4 grid grid-cols-2 gap-2">
+                                    <div className="space-y-4">
                                         <div>
-                                            <label className="text-xs text-zinc-400 uppercase font-bold tracking-wider mb-1 block">{t('select_country')}</label>
-                                            <input
-                                                list="profile-country-list"
+                                            <label className="block text-xs font-bold text-zinc-500 uppercase mb-1">{t('select_country')}</label>
+                                            <Select
+                                                showSearch
+                                                style={{ width: '100%' }}
+                                                placeholder={t('select_country')}
+                                                optionFilterProp="children"
                                                 value={country}
-                                                onChange={(e) => {
-                                                    const val = e.target.value;
-                                                    setCountry(val);
-                                                    const c = Country.getAllCountries().find(c => c.name === val);
+                                                onChange={(value) => {
+                                                    setCountry(value);
+                                                    const c = Country.getAllCountries().find(c => c.name === value);
                                                     setCountryCode(c ? c.isoCode : '');
-                                                    setCity('');
+                                                    setCity(''); // Clear city when country changes
                                                 }}
-                                                className="bg-transparent border-b border-zinc-300 dark:border-zinc-700 w-full text-sm py-1 outline-none focus:border-black dark:focus:border-white"
+                                                filterOption={(input, option) =>
+                                                    (option?.label ?? '').toLowerCase().includes(input.toLowerCase())
+                                                }
+                                                options={Country.getAllCountries().map(c => ({ value: c.name, label: c.name }))}
                                             />
-                                            <datalist id="profile-country-list">
-                                                {Country.getAllCountries().map(c => (
-                                                    <option key={c.isoCode} value={c.name} />
-                                                ))}
-                                            </datalist>
                                         </div>
                                         <div>
-                                            <label className="text-xs text-zinc-400 uppercase font-bold tracking-wider mb-1 block">{t('select_city')}</label>
-                                            <input
-                                                list="profile-city-list"
+                                            <label className="block text-xs font-bold text-zinc-500 uppercase mb-1">{t('select_city')}</label>
+                                            <Select
+                                                showSearch
+                                                style={{ width: '100%' }}
+                                                placeholder={t('select_city')}
+                                                optionFilterProp="children"
                                                 value={city}
-                                                onChange={(e) => setCity(e.target.value)}
+                                                onChange={setCity}
                                                 disabled={!countryCode}
-                                                className="bg-transparent border-b border-zinc-300 dark:border-zinc-700 w-full text-sm py-1 outline-none focus:border-black dark:focus:border-white disabled:opacity-50"
+                                                filterOption={(input, option) =>
+                                                    (option?.label ?? '').toLowerCase().includes(input.toLowerCase())
+                                                }
+                                                options={countryCode ? City.getCitiesOfCountry(countryCode)?.map(c => ({ value: c.name, label: c.name })) : []}
                                             />
-                                            <datalist id="profile-city-list">
-                                                {countryCode && City.getCitiesOfCountry(countryCode)?.map(c => (
-                                                    <option key={c.name} value={c.name} />
-                                                ))}
-                                            </datalist>
                                         </div>
                                     </div>
                                 </fieldset>
@@ -264,7 +265,7 @@ const ProfilePage: React.FC<ProfileProps> = ({ user }) => {
                                 {user.country && (
                                     <>
                                         <span className="w-1 h-1 bg-zinc-400 rounded-full"></span>
-                                        <span>{user.city ? `${user.city}, ${user.country}` : user.country}</span>
+                                        <span>{user.city ? `${user.city}, ${user.country} ` : user.country}</span>
                                     </>
                                 )}
                                 <span className="w-1 h-1 bg-zinc-400 rounded-full"></span>
@@ -298,7 +299,7 @@ const ProfilePage: React.FC<ProfileProps> = ({ user }) => {
                             <span className="text-xs uppercase tracking-widest text-zinc-400">{t('status')}</span>
                             <span className={`px-3 py-1 rounded-full text-xs font-bold border ${user.status === 'ACTIVE' ? 'bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-400 border-green-200 dark:border-green-800' :
                                 'bg-zinc-100 dark:bg-zinc-800 text-zinc-600 dark:text-zinc-400 border-zinc-200 dark:border-zinc-700'
-                                }`}>
+                                } `}>
                                 {t(user.status)}
                             </span>
                         </div>
@@ -396,7 +397,12 @@ const ProfilePage: React.FC<ProfileProps> = ({ user }) => {
                                 <FeedItem
                                     post={post}
                                     currentUser={user}
-                                    onDelete={(id) => setMyPosts(prev => prev.filter(p => p.id !== id))}
+                                    onDelete={async (id) => {
+                                        await mutate((currentData: any) => {
+                                            if (!currentData) return [];
+                                            return currentData.filter((p: Post) => p.id !== id);
+                                        }, false);
+                                    }}
                                 />
                             </div>
                         ))}

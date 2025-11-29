@@ -4,8 +4,10 @@ import { useNavigate, useLocation } from 'react-router-dom';
 import { User, UserRole, Notification } from '../types';
 import { useApp } from '../utils/i18n';
 import { getPendingUserCount, getNotifications, markNotificationRead, subscribeToNotifications, subscribeToAdminChanges } from '../services/mockBackend';
-import { Badge, Icons, useToast } from './UI';
 import { formatRelativeTime, formatNotificationMessage } from '../utils/formatters';
+import { Button, Badge, Popover, Drawer, Dropdown, Avatar, Menu, List, Empty } from 'antd';
+import type { MenuProps } from 'antd';
+import { Icons, useToast } from './UI';
 
 interface NavbarProps {
     user: User | null;
@@ -23,8 +25,8 @@ export const Navbar: React.FC<NavbarProps> = ({ user, onLogout }) => {
     // Notification State
     const [notifications, setNotifications] = useState<Notification[]>([]);
     const [unreadNotifs, setUnreadNotifs] = useState(0);
+
     const [isNotifOpen, setIsNotifOpen] = useState(false);
-    const notifRef = useRef<HTMLDivElement>(null);
 
     // Data Fetching & Realtime
     useEffect(() => {
@@ -58,16 +60,7 @@ export const Navbar: React.FC<NavbarProps> = ({ user, onLogout }) => {
                 addToast(
                     formatNotificationMessage(newNotif),
                     'info',
-                    5000,
-                    () => {
-                        if (newNotif.relatedPostId) {
-                            let url = `/post/${newNotif.relatedPostId}`;
-                            if (newNotif.relatedCommentId) {
-                                url += `?highlightCommentId=${newNotif.relatedCommentId}`;
-                            }
-                            navigate(url);
-                        }
-                    }
+                    5000
                 );
                 fetchData(); // Refresh list and counts
             });
@@ -92,16 +85,7 @@ export const Navbar: React.FC<NavbarProps> = ({ user, onLogout }) => {
         };
     }, [user]);
 
-    // Click outside for Notification Dropdown
-    useEffect(() => {
-        const handleClickOutside = (event: MouseEvent) => {
-            if (notifRef.current && !notifRef.current.contains(event.target as Node)) {
-                setIsNotifOpen(false);
-            }
-        };
-        document.addEventListener('mousedown', handleClickOutside);
-        return () => document.removeEventListener('mousedown', handleClickOutside);
-    }, []);
+
 
     const handleNotificationClick = async (notif: Notification) => {
         // Mark read immediately in UI
@@ -124,8 +108,8 @@ export const Navbar: React.FC<NavbarProps> = ({ user, onLogout }) => {
     const isAuthPage = location.pathname === '/login' || location.pathname === '/register';
     if (isAuthPage) return null;
 
-    // Filter list to only show UNREAD items in the dropdown view as requested
-    const displayNotifications = notifications.filter(n => !n.isRead);
+    // Show all notifications (limit handled by backend)
+    const displayNotifications = notifications;
 
     const LanguageSwitcher = () => (
         <div className="flex items-center gap-1">
@@ -226,65 +210,57 @@ export const Navbar: React.FC<NavbarProps> = ({ user, onLogout }) => {
 
                         {/* Notifications */}
                         {user && (
-                            <div className="relative" ref={notifRef}>
-                                <button onClick={() => setIsNotifOpen(!isNotifOpen)} className="text-zinc-500 hover:text-black dark:hover:text-white transition-colors p-1 relative flex items-center justify-center">
-                                    <Icons.Bell className="w-5 h-5" />
-                                    {unreadNotifs > 0 && (
-                                        <span className="absolute top-0 right-0 w-2 h-2 bg-red-500 rounded-full ring-2 ring-white dark:ring-black"></span>
-                                    )}
-                                </button>
-
-                                {/* Notifications Dropdown */}
-                                {isNotifOpen && (
-                                    <div className="fixed top-16 left-2 right-2 md:absolute md:right-0 md:left-auto md:top-full md:mt-2 md:w-80 bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 shadow-xl rounded-sm overflow-hidden animate-fadeIn z-[60]">
-                                        <div className="p-3 border-b border-zinc-200 dark:border-zinc-800 flex justify-between items-center bg-gray-50 dark:bg-black">
-                                            <span className="text-xs font-bold uppercase text-zinc-500 tracking-wider">Notifications</span>
-                                            {unreadNotifs > 0 ? (
-                                                <span className="text-xs text-red-500 font-bold">{unreadNotifs} NEW</span>
-                                            ) : (
-                                                <span className="text-xs text-zinc-400">All caught up</span>
-                                            )}
-                                        </div>
-                                        <div className="max-h-64 md:max-h-80 overflow-y-auto">
-                                            {displayNotifications.length === 0 ? (
-                                                <div className="p-6 text-center text-zinc-400 text-xs italic">No new notifications</div>
-                                            ) : (
-                                                displayNotifications.map(notif => (
-                                                    <div
-                                                        key={notif.id}
-                                                        onClick={() => handleNotificationClick(notif)}
-                                                        className="p-3 border-b border-zinc-100 dark:border-zinc-800 cursor-pointer hover:bg-gray-50 dark:hover:bg-zinc-800/50 transition-colors flex gap-3 bg-blue-50/50 dark:bg-blue-900/10"
-                                                    >
-                                                        <div className="w-8 h-8 rounded-full bg-zinc-200 dark:bg-zinc-800 flex-shrink-0 overflow-hidden">
-                                                            {notif.triggerUser?.avatarUrl ? (
-                                                                <img src={notif.triggerUser.avatarUrl} className="w-full h-full object-cover" />
-                                                            ) : (
-                                                                <div className="w-full h-full flex items-center justify-center text-[10px] font-bold">{notif.triggerUser?.nickname?.charAt(0) || '?'}</div>
-                                                            )}
-                                                        </div>
-                                                        <div className="flex-1 min-w-0">
-                                                            <div className="flex justify-between items-start">
-                                                                <span className="text-xs text-black dark:text-white font-bold truncate pr-2">{notif.triggerUser?.nickname || 'Someone'}</span>
-                                                                <span className="text-[9px] text-zinc-400 whitespace-nowrap">{formatRelativeTime(notif.createdAt)}</span>
+                            <Popover
+                                content={
+                                    <div className="w-80 max-h-96 overflow-y-auto">
+                                        <List
+                                            itemLayout="horizontal"
+                                            dataSource={displayNotifications}
+                                            locale={{ emptyText: <Empty image={Empty.PRESENTED_IMAGE_SIMPLE} description="No new notifications" /> }}
+                                            renderItem={(notif) => (
+                                                <List.Item
+                                                    className="cursor-pointer hover:bg-zinc-50 dark:hover:bg-zinc-800/50 transition-colors !px-4 !py-3"
+                                                    onClick={() => handleNotificationClick(notif)}
+                                                >
+                                                    <List.Item.Meta
+                                                        avatar={<Avatar src={notif.triggerUser?.avatarUrl}>{notif.triggerUser?.nickname?.charAt(0)}</Avatar>}
+                                                        title={
+                                                            <div className="flex justify-between items-center">
+                                                                <span className="text-xs font-bold">{notif.triggerUser?.nickname}</span>
+                                                                <span className="text-[9px] text-zinc-400">{formatRelativeTime(notif.createdAt)}</span>
                                                             </div>
-                                                            <p className="text-xs mt-0.5 line-clamp-2 text-zinc-800 dark:text-zinc-200">
+                                                        }
+                                                        description={
+                                                            <div className="text-xs text-zinc-600 dark:text-zinc-400 line-clamp-2">
                                                                 {formatNotificationMessage(notif)}
-                                                            </p>
-                                                        </div>
-                                                        <div className="w-1.5 h-1.5 rounded-full bg-red-500 self-center flex-shrink-0"></div>
-                                                    </div>
-                                                ))
+                                                            </div>
+                                                        }
+                                                    />
+                                                    {!notif.isRead && <div className="w-2 h-2 rounded-full bg-red-500 shrink-0 ml-2" />}
+                                                </List.Item>
                                             )}
-                                        </div>
+                                        />
                                     </div>
-                                )}
-                            </div>
+                                }
+                                title={
+                                    <div className="flex justify-between items-center">
+                                        <span>Notifications</span>
+                                        {unreadNotifs > 0 && <span className="text-xs text-red-500 font-bold">{unreadNotifs} NEW</span>}
+                                    </div>
+                                }
+                                trigger="click"
+                                open={isNotifOpen}
+                                onOpenChange={setIsNotifOpen}
+                                placement="bottomRight"
+                            >
+                                <Badge count={unreadNotifs} size="small" offset={[-2, 2]}>
+                                    <Button type="text" icon={<Icons.Bell className="w-5 h-5" />} className="flex items-center justify-center" />
+                                </Badge>
+                            </Popover>
                         )}
 
                         {/* Theme Toggle */}
-                        <button onClick={toggleTheme} className="text-zinc-500 hover:text-black dark:hover:text-white transition-colors p-1">
-                            {theme === 'dark' ? <Icons.Sun className="w-5 h-5" /> : <Icons.Moon className="w-5 h-5" />}
-                        </button>
+                        <Button type="text" onClick={toggleTheme} icon={theme === 'dark' ? <Icons.Sun className="w-5 h-5" /> : <Icons.Moon className="w-5 h-5" />} />
 
                         {/* Desktop Lang Switcher */}
                         <div className="hidden sm:block">
@@ -294,47 +270,47 @@ export const Navbar: React.FC<NavbarProps> = ({ user, onLogout }) => {
                         {/* User Profile & Logout (Desktop) */}
                         {user && (
                             <div className="hidden md:flex items-center gap-4 pl-4 border-l border-zinc-200 dark:border-zinc-800 ml-1">
-                                <div
-                                    onClick={() => navigate('/profile')}
-                                    className="flex items-center gap-2 cursor-pointer group"
+                                <Dropdown
+                                    menu={{
+                                        items: [
+                                            { key: 'profile', label: t('profile'), onClick: () => navigate('/profile') },
+                                            { key: 'logout', label: t('logout'), onClick: onLogout, danger: true }
+                                        ]
+                                    }}
+                                    placement="bottomRight"
                                 >
-                                    <div className="w-8 h-8 rounded-full bg-zinc-100 dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 overflow-hidden group-hover:border-black dark:group-hover:border-white transition-colors">
-                                        {user.avatarUrl ? (
-                                            <img src={user.avatarUrl} className="w-full h-full object-cover" />
-                                        ) : (
-                                            <div className="w-full h-full flex items-center justify-center text-xs font-bold text-zinc-500">{user.nickname?.charAt(0)}</div>
-                                        )}
+                                    <div className="flex items-center gap-2 cursor-pointer group">
+                                        <Avatar src={user.avatarUrl} className="border border-zinc-200 dark:border-zinc-700 group-hover:border-black dark:group-hover:border-white transition-colors">
+                                            {user.nickname?.charAt(0)}
+                                        </Avatar>
+                                        <span className="text-sm font-bold text-zinc-700 dark:text-zinc-300 group-hover:text-black dark:group-hover:text-white transition-colors max-w-[100px] truncate">
+                                            {user.nickname}
+                                        </span>
                                     </div>
-                                    <span className="text-sm font-bold text-zinc-700 dark:text-zinc-300 group-hover:text-black dark:group-hover:text-white transition-colors max-w-[100px] truncate">
-                                        {user.nickname}
-                                    </span>
-                                </div>
-
-                                <button onClick={() => onLogout()} className="text-xs font-bold text-zinc-400 hover:text-black dark:hover:text-white uppercase tracking-wider transition-colors">
-                                    {t('logout')}
-                                </button>
+                                </Dropdown>
                             </div>
                         )}
 
                         {/* Mobile Menu Toggle */}
                         <div className="md:hidden flex items-center border-l border-zinc-200 dark:border-zinc-800 pl-3">
-                            <button
-                                onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
-                                className="text-black dark:text-white p-1 focus:outline-none"
-                            >
-                                {isMobileMenuOpen ? <Icons.X className="w-6 h-6" /> : <Icons.Menu className="w-6 h-6" />}
-                            </button>
+                            <Button type="text" onClick={() => setIsMobileMenuOpen(true)} icon={<Icons.Menu className="w-6 h-6" />} />
                         </div>
                     </div>
                 </div>
             </div>
 
-            {/* Mobile Menu Dropdown */}
-            {isMobileMenuOpen && (
-                <div className="md:hidden bg-white dark:bg-zinc-900 border-b border-zinc-200 dark:border-zinc-800 px-4 pt-2 pb-4 space-y-2 flex flex-col shadow-lg animate-slideUp">
+            {/* Mobile Menu Drawer */}
+            <Drawer
+                title={t('app_name')}
+                placement="right"
+                onClose={() => setIsMobileMenuOpen(false)}
+                open={isMobileMenuOpen}
+                width={280}
+            >
+                <div className="flex flex-col gap-2">
                     <NavLinksMobile />
                 </div>
-            )}
+            </Drawer>
         </nav>
     );
 };
