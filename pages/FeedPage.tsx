@@ -1,5 +1,6 @@
 
 import React, { useEffect, useRef, useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { User, Post, Comment } from '../types';
 import { getFeed, createPost, deletePost, toggleLike, getComments, addComment, deleteComment, subscribeToFeed } from '../services/mockBackend';
 import { useApp } from '../utils/i18n';
@@ -8,11 +9,11 @@ import { ImagePreview } from '../components/ImagePreview';
 import { formatLocalTime, formatRelativeTime } from '../utils/formatters';
 
 import { useToast, Icons } from '../components/UI';
-import { Button, Input, Spin, Image, Upload, message, Avatar, Popconfirm } from 'antd';
+import { Button, Input, Spin, Upload, message, Avatar, Popconfirm } from 'antd';
 import imageCompression from 'browser-image-compression';
 
 interface FeedProps {
-    user: User;
+    user?: User | null;
 }
 
 const ImageGrid: React.FC<{ imageUrls: string[] }> = ({ imageUrls }) => {
@@ -27,11 +28,10 @@ const ImageGrid: React.FC<{ imageUrls: string[] }> = ({ imageUrls }) => {
         return (
             <div className="mt-3 mb-1">
                 <div className="mt-3 mb-1">
-                    <Image
+                    <img
                         src={imageUrls[0]}
                         alt={t('post_attachment')}
                         className="rounded-sm w-full h-auto max-h-[500px] overflow-hidden bg-zinc-100 dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800"
-                        width="100%"
                     />
                 </div>
             </div>
@@ -50,26 +50,22 @@ const ImageGrid: React.FC<{ imageUrls: string[] }> = ({ imageUrls }) => {
 
     return (
         <div className={`grid ${gridClass} gap-0.5 mt-3 mb-1 rounded-sm overflow-hidden border border-zinc-200 dark:border-zinc-800`}>
-            <Image.PreviewGroup>
-                {imageUrls.map((url, index) => (
+            {imageUrls.map((url, index) => (
                     <div key={index} className="aspect-square relative overflow-hidden bg-zinc-100 dark:bg-zinc-800">
-                        <Image
+                        <img
                             src={url}
                             alt={`${t('attachment')} ${index + 1}`}
                             className="w-full h-full object-cover hover:scale-105 transition-transform duration-500"
-                            width="100%"
-                            height="100%"
                         />
                     </div>
                 ))}
-            </Image.PreviewGroup>
         </div>
     );
 };
 
 interface CommentItemProps {
     comment: Comment;
-    currentUser: User;
+    currentUser: User | null;
     replyingTo: string | null;
     setReplyingTo: (id: string | null) => void;
     replyInput: string;
@@ -123,7 +119,7 @@ const CommentItem: React.FC<CommentItemProps> = ({
                                     {formatRelativeTime(comment.createdAt)}
                                 </span>
                             </div>
-                            {(currentUser.role === 'ADMIN' || currentUser.id === comment.userId) && (
+                            {currentUser && (currentUser.role === 'ADMIN' || currentUser.id === comment.userId) && (
                                 <Popconfirm
                                     title={t('delete_confirm')}
                                     onConfirm={() => onDelete(comment.id)}
@@ -144,18 +140,18 @@ const CommentItem: React.FC<CommentItemProps> = ({
                     </div>
 
                     <div className="flex items-center gap-4 mt-1 ml-2">
-                        <button
+                        {currentUser && <button
                             onClick={() => setReplyingTo(isReplying ? null : comment.id)}
                             className={`font-bold text-zinc-400 hover:text-black dark:hover:text-white transition-colors uppercase tracking-wide ${isReplying ? 'text-black dark:text-white' : ''} text-[10px]`}
                         >
                             {t('reply')}
-                        </button>
+                        </button>}
                     </div>
                 </div>
             </div>
 
             {/* Reply Input */}
-            {isReplying && (
+            {isReplying && currentUser && (
                 <div className={`pl-11 animate-fadeIn mt-1 mb-2`}>
                     <form onSubmit={(e) => onSend(e, comment.id)} className="flex items-center gap-2">
                         <div className="h-6 w-6 rounded-full bg-zinc-100 dark:bg-zinc-800 flex items-center justify-center text-[8px] shrink-0">
@@ -207,7 +203,7 @@ const CommentItem: React.FC<CommentItemProps> = ({
     );
 };
 
-export const FeedItem: React.FC<{ post: Post & { user?: User }; currentUser: User; onDelete: (id: string) => void }> = ({ post, currentUser, onDelete }) => {
+export const FeedItem: React.FC<{ post: Post & { user?: User }; currentUser: User | null; onDelete: (id: string) => void }> = ({ post, currentUser, onDelete }) => {
     const { t } = useApp();
     const { addToast } = useToast();
     const [likes, setLikes] = useState(post.likes);
@@ -225,6 +221,10 @@ export const FeedItem: React.FC<{ post: Post & { user?: User }; currentUser: Use
     const [sendingReply, setSendingReply] = useState(false);
 
     const handleLike = async () => {
+        if (!currentUser) {
+            addToast(t('login_to_interact'), 'info');
+            return;
+        }
         const newVal = !isLiked;
         setIsLiked(newVal);
         setLikes(prev => newVal ? prev + 1 : prev - 1);
@@ -258,6 +258,10 @@ export const FeedItem: React.FC<{ post: Post & { user?: User }; currentUser: Use
 
     const handleSendComment = async (e: React.FormEvent, parentId?: string) => {
         e.preventDefault();
+        if (!currentUser) {
+            addToast(t('login_to_interact'), 'info');
+            return;
+        }
         const content = parentId ? replyInput : commentInput;
         if (!content.trim()) return;
 
@@ -312,13 +316,13 @@ export const FeedItem: React.FC<{ post: Post & { user?: User }; currentUser: Use
         try {
             await deletePost(post.id);
             onDelete(post.id);
-            addToast('Post deleted', 'success');
+            addToast(t('post_deleted'), 'success');
         } catch (e) {
             addToast(t('delete_failed'), 'error');
         }
     };
 
-    const canDelete = currentUser.role === 'ADMIN' || currentUser.id === post.userId;
+    const canDelete = !!currentUser && (currentUser.role === 'ADMIN' || currentUser.id === post.userId);
     const displayImages = post.imageUrls || [];
 
     return (
@@ -386,6 +390,7 @@ export const FeedItem: React.FC<{ post: Post & { user?: User }; currentUser: Use
 
                 {/* Content */}
                 <div className="pl-[64px]">
+                    {post.title && <h2 className="text-xl font-bold text-black dark:text-white mb-2">{post.title}</h2>}
                     <div className="text-base leading-relaxed text-black dark:text-white whitespace-pre-wrap break-words mb-4 font-normal">
                         {post.content}
                     </div>
@@ -457,7 +462,7 @@ export const FeedItem: React.FC<{ post: Post & { user?: User }; currentUser: Use
                         )}
 
                         {/* Comment Input */}
-                        <fieldset disabled={sendingComment} className="relative">
+                        {currentUser ? <fieldset disabled={sendingComment} className="relative">
                             <form onSubmit={(e) => handleSendComment(e)} className="flex items-center gap-3">
                                 <div className="h-8 w-8 rounded-full bg-zinc-100 dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 flex items-center justify-center text-[10px] shrink-0">
                                     {currentUser.avatarUrl ? <img src={currentUser.avatarUrl} className="w-full h-full object-cover rounded-full" /> : currentUser.nickname?.charAt(0)}
@@ -478,7 +483,11 @@ export const FeedItem: React.FC<{ post: Post & { user?: User }; currentUser: Use
                                     />
                                 </div>
                             </form>
-                        </fieldset>
+                        </fieldset> : (
+                            <button onClick={() => window.location.hash = '/login'} className="w-full border border-dashed border-zinc-300 dark:border-zinc-700 rounded-full px-4 py-3 text-xs text-zinc-500 hover:text-black dark:hover:text-white transition-colors">
+                                {t('login_to_comment')}
+                            </button>
+                        )}
                     </div>
                 </div>
             )}
@@ -487,6 +496,7 @@ export const FeedItem: React.FC<{ post: Post & { user?: User }; currentUser: Use
 };
 
 const FeedPage: React.FC<FeedProps> = ({ user }) => {
+    const navigate = useNavigate();
     const { t } = useApp();
     const { addToast } = useToast();
     const { posts, error, isLoading, isLoadingMore, isReachingEnd, size, setSize, mutate } = useFeed();
@@ -654,6 +664,7 @@ const FeedPage: React.FC<FeedProps> = ({ user }) => {
 
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
+        if (!user) return;
         if (!newContent.trim() && selectedFiles.length === 0) return;
 
         setSubmitting(true);
@@ -704,8 +715,18 @@ const FeedPage: React.FC<FeedProps> = ({ user }) => {
     return (
         <div className="max-w-2xl mx-auto px-4 py-8">
             {/* Post Creator */}
-            {/* Post Creator */}
             <div className="mb-8">
+                {!user ? (
+                    <div className="bg-zinc-50 dark:bg-zinc-900/40 border border-dashed border-zinc-300 dark:border-zinc-700 rounded-2xl p-6 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+                        <div>
+                            <p className="font-bold text-black dark:text-white mb-1">{t('journal')}</p>
+                            <p className="text-sm text-zinc-500">{t('journal_subtitle')}</p>
+                        </div>
+                        <button onClick={() => navigate('/login')} className="shrink-0 bg-black dark:bg-white text-white dark:text-black px-5 py-2.5 rounded-full text-xs font-bold tracking-wide">
+                            {t('login_to_write')}
+                        </button>
+                    </div>
+                ) : (
                 <fieldset disabled={submitting} className="group">
                     <form onSubmit={handleSubmit}>
                         <div className="bg-white dark:bg-black border border-zinc-200 dark:border-zinc-800 rounded-lg shadow-sm overflow-hidden transition-all focus-within:ring-1 focus-within:ring-black dark:focus-within:ring-white focus-within:border-transparent">
@@ -794,6 +815,7 @@ const FeedPage: React.FC<FeedProps> = ({ user }) => {
                         </div>
                     </form>
                 </fieldset>
+                )}
             </div>
 
             {/* Feed Stream */}

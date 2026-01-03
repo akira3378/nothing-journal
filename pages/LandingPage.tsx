@@ -48,30 +48,29 @@ const LandingPage: React.FC<LandingProps> = ({ user }) => {
         </div>
 
         <div className="z-10 relative">
-          <h1 className="text-7xl md:text-9xl font-black tracking-tighter mb-6 animate-slideUp text-black dark:text-white mix-blend-difference">
+          <p className="text-xs md:text-sm font-mono tracking-[0.35em] text-zinc-400 mb-6 animate-slideUp uppercase">{t('journal_entry')}</p>
+          <h1 className="text-6xl md:text-9xl font-black tracking-tighter mb-6 animate-slideUp text-black dark:text-white mix-blend-difference">
             {t('landing_hero_1')}
           </h1>
           <p className="text-lg md:text-2xl text-zinc-500 dark:text-zinc-400 max-w-2xl mx-auto mb-12 tracking-widest font-light animate-slideUp" style={{ animationDelay: '0.1s' }}>
             {t('landing_hero_2')}
           </p>
 
-          {!user && (
-            <div className="flex flex-col sm:flex-row gap-6 justify-center animate-slideUp" style={{ animationDelay: '0.2s' }}>
+          <div className="flex flex-col sm:flex-row gap-6 justify-center animate-slideUp" style={{ animationDelay: '0.2s' }}>
               <button
-                onClick={() => navigate('/register')}
+                onClick={() => navigate('/journal')}
                 className="group relative px-10 py-4 bg-black dark:bg-white text-white dark:text-black font-bold text-sm rounded-full hover:scale-105 active:scale-95 transition-all duration-300 tracking-widest uppercase shadow-xl hover:shadow-2xl hover:shadow-black/20 dark:hover:shadow-white/20"
               >
-                <span className="relative z-10">{t('join_us')}</span>
+                <span className="relative z-10">{t('explore_journal')}</span>
                 <div className="absolute inset-0 rounded-full bg-gradient-to-r from-zinc-800 to-black dark:from-zinc-200 dark:to-white opacity-0 group-hover:opacity-100 transition-opacity duration-300"></div>
               </button>
               <button
                 onClick={() => navigate('/login')}
                 className="px-10 py-4 bg-transparent border border-zinc-300 dark:border-zinc-700 text-black dark:text-white font-bold text-sm rounded-full hover:bg-zinc-50 dark:hover:bg-zinc-900 hover:border-black dark:hover:border-white active:scale-95 transition-all duration-300 tracking-widest uppercase backdrop-blur-sm"
               >
-                {t('login')}
+                {user ? t('manage_journal') : t('write_note')}
               </button>
-            </div>
-          )}
+          </div>
         </div>
       </header>
 

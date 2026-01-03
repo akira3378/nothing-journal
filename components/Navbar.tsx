@@ -2,7 +2,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { User, UserRole, Notification } from '../types';
-import { useApp } from '../utils/i18n';
+import { LANGUAGE_OPTIONS, useApp } from '../utils/i18n';
 import { getPendingUserCount, getNotifications, markNotificationRead, subscribeToNotifications, subscribeToAdminChanges } from '../services/mockBackend';
 import { formatRelativeTime, formatNotificationMessage } from '../utils/formatters';
 import { Button, Badge, Popover, Drawer, Dropdown, Avatar, Menu, List, Empty } from 'antd';
@@ -112,20 +112,20 @@ export const Navbar: React.FC<NavbarProps> = ({ user, onLogout }) => {
     const displayNotifications = notifications;
 
     const LanguageSwitcher = () => (
-        <div className="flex items-center gap-1">
-            <button
-                onClick={() => setLanguage('zh')}
-                className={`text-[10px] font-bold px-2 py-1 rounded-sm transition-all ${language === 'zh' ? 'bg-black dark:bg-white text-white dark:text-black' : 'text-zinc-400 hover:text-black dark:hover:text-white'}`}
-            >
-                ZH
-            </button>
-            <div className="w-[1px] h-3 bg-zinc-200 dark:bg-zinc-800"></div>
-            <button
-                onClick={() => setLanguage('en')}
-                className={`text-[10px] font-bold px-2 py-1 rounded-sm transition-all ${language === 'en' ? 'bg-black dark:bg-white text-white dark:text-black' : 'text-zinc-400 hover:text-black dark:hover:text-white'}`}
-            >
-                EN
-            </button>
+        <div className="flex items-center gap-1" aria-label={t('language_name')}>
+            {LANGUAGE_OPTIONS.map((option, index) => (
+                <React.Fragment key={option.code}>
+                    {index > 0 && <div className="w-[1px] h-3 bg-zinc-200 dark:bg-zinc-800" />}
+                    <button
+                        onClick={() => setLanguage(option.code)}
+                        aria-label={option.label}
+                        aria-pressed={language === option.code}
+                        className={`text-[10px] font-bold px-2 py-1 rounded-sm transition-all ${language === option.code ? 'bg-black dark:bg-white text-white dark:text-black' : 'text-zinc-400 hover:text-black dark:hover:text-white'}`}
+                    >
+                        {option.shortLabel}
+                    </button>
+                </React.Fragment>
+            ))}
         </div>
     );
 
@@ -133,8 +133,8 @@ export const Navbar: React.FC<NavbarProps> = ({ user, onLogout }) => {
         <>
             {!user ? (
                 <>
-                    <button onClick={() => { navigate('/login'); setIsMobileMenuOpen(false); }} className="text-left w-full text-zinc-600 dark:text-zinc-300 px-3 py-2 text-sm font-medium">{t('login')}</button>
-                    <button onClick={() => { navigate('/register'); setIsMobileMenuOpen(false); }} className="text-left w-full text-zinc-600 dark:text-zinc-300 px-3 py-2 text-sm font-medium">{t('join_us')}</button>
+                    <button onClick={() => { navigate('/journal'); setIsMobileMenuOpen(false); }} className="text-left w-full text-zinc-600 dark:text-zinc-300 px-3 py-2 text-sm font-medium">{t('journal')}</button>
+                    <button onClick={() => { navigate('/login'); setIsMobileMenuOpen(false); }} className="text-left w-full text-zinc-600 dark:text-zinc-300 px-3 py-2 text-sm font-medium">{t('write')}</button>
                 </>
             ) : (
                 <>
@@ -147,7 +147,7 @@ export const Navbar: React.FC<NavbarProps> = ({ user, onLogout }) => {
                             <div className="text-xs text-zinc-500">{t('profile')}</div>
                         </div>
                     </div>
-                    <button onClick={() => { navigate('/feed'); setIsMobileMenuOpen(false); }} className="text-left w-full text-zinc-600 dark:text-zinc-300 px-3 py-2 text-sm font-medium">{t('feed')}</button>
+                    <button onClick={() => { navigate('/journal'); setIsMobileMenuOpen(false); }} className="text-left w-full text-zinc-600 dark:text-zinc-300 px-3 py-2 text-sm font-medium">{t('feed')}</button>
                     {user.role === 'ADMIN' && (
                         <button onClick={() => { navigate('/admin'); setIsMobileMenuOpen(false); }} className="text-left w-full text-red-500 px-3 py-2 text-sm font-medium flex items-center gap-1">
                             {t('admin')}
@@ -193,13 +193,13 @@ export const Navbar: React.FC<NavbarProps> = ({ user, onLogout }) => {
                             {!user ? (
                                 location.pathname !== '/' && (
                                     <>
-                                        <button onClick={() => navigate('/login')} className="text-zinc-600 dark:text-zinc-300 hover:text-black dark:hover:text-white px-3 py-2 rounded-md text-sm font-medium transition-colors">{t('login')}</button>
-                                        <button onClick={() => navigate('/register')} className="bg-black dark:bg-white text-white dark:text-black hover:bg-zinc-800 dark:hover:bg-gray-200 px-4 py-2 rounded-sm text-sm font-bold transition-colors">{t('join_us')}</button>
+                                        <button onClick={() => navigate('/journal')} className="text-zinc-600 dark:text-zinc-300 hover:text-black dark:hover:text-white px-3 py-2 rounded-md text-sm font-medium transition-colors">{t('journal')}</button>
+                                        <button onClick={() => navigate('/login')} className="bg-black dark:bg-white text-white dark:text-black hover:bg-zinc-800 dark:hover:bg-gray-200 px-4 py-2 rounded-sm text-sm font-bold transition-colors">{t('write')}</button>
                                     </>
                                 )
                             ) : (
                                 <>
-                                    <button onClick={() => navigate('/feed')} className="text-zinc-600 dark:text-zinc-300 hover:text-black dark:hover:text-white px-3 py-2 text-sm font-medium">{t('feed')}</button>
+                                    <button onClick={() => navigate('/journal')} className="text-zinc-600 dark:text-zinc-300 hover:text-black dark:hover:text-white px-3 py-2 text-sm font-medium">{t('feed')}</button>
                                     {user.role === 'ADMIN' && (
                                         <button onClick={() => navigate('/admin')} className="text-red-500 hover:text-red-600 dark:text-red-400 dark:hover:text-red-300 px-3 py-2 text-sm font-medium flex items-center gap-1">
                                             {t('admin')}
@@ -219,7 +219,7 @@ export const Navbar: React.FC<NavbarProps> = ({ user, onLogout }) => {
                             <Popover
                                 content={
                                     <div className="w-80 max-w-[calc(100vw-2rem)] max-h-96 overflow-y-auto">
-                                        <List
+                                        <List<Notification>
                                             itemLayout="horizontal"
                                             dataSource={displayNotifications}
                                             locale={{ emptyText: <Empty image={Empty.PRESENTED_IMAGE_SIMPLE} description="No new notifications" /> }}

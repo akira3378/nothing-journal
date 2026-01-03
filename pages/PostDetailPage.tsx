@@ -72,6 +72,10 @@ const PostDetailPage: React.FC = () => {
 
     const handleLike = async () => {
         if (!post) return;
+        if (!currentUser) {
+            addToast(t('login_to_interact'), 'info');
+            return;
+        }
         const newVal = !isLiked;
         setIsLiked(newVal);
         setLikes(prev => newVal ? prev + 1 : prev - 1);
@@ -81,6 +85,10 @@ const PostDetailPage: React.FC = () => {
     const handleSendComment = async (e: React.FormEvent) => {
         e.preventDefault();
         if (!commentInput.trim() || !post) return;
+        if (!currentUser) {
+            addToast(t('login_to_comment'), 'info');
+            return;
+        }
         setSendingComment(true);
         try {
             await addComment(post.id, commentInput, replyToId);
@@ -100,7 +108,7 @@ const PostDetailPage: React.FC = () => {
         if (confirm(t('delete_confirm'))) {
             try {
                 await deletePost(post.id);
-                navigate('/feed');
+                navigate('/journal');
             } catch (e: any) {
                 addToast(e.message || t('delete_failed'), 'error');
             }
@@ -133,12 +141,12 @@ const PostDetailPage: React.FC = () => {
     };
 
     if (loading) return <div className="flex justify-center pt-32"><Spinner size="lg" /></div>;
-    if (!post || !currentUser) return <div className="text-center pt-32 text-zinc-500 font-mono">ERR: POST_NOT_FOUND</div>;
+    if (!post) return <div className="text-center pt-32 text-zinc-500 font-mono">ERR: POST_NOT_FOUND</div>;
 
     return (
         <div className="max-w-2xl mx-auto px-4 py-8">
             <button onClick={() => navigate(-1)} className="mb-6 flex items-center gap-2 text-xs font-bold text-zinc-500 hover:text-black dark:hover:text-white transition-colors uppercase tracking-wider">
-                <Icons.ChevronDown className="w-4 h-4 rotate-90" /> Back to Feed
+                <Icons.ChevronDown className="w-4 h-4 rotate-90" /> {t('back_to_journal')}
             </button>
 
             <article className="bg-white dark:bg-black border border-zinc-200 dark:border-zinc-800 rounded-sm shadow-sm transition-colors mb-4 overflow-hidden">
@@ -161,7 +169,7 @@ const PostDetailPage: React.FC = () => {
                                 </div>
                             </div>
                         </div>
-                        {(currentUser.id === post.userId || currentUser.role === 'ADMIN') && (
+                        {currentUser && (currentUser.id === post.userId || currentUser.role === 'ADMIN') && (
                             <button onClick={handleDelete} className="text-zinc-300 hover:text-red-500 transition-colors p-1">
                                 <Icons.Trash className="w-4 h-4" />
                             </button>
@@ -169,7 +177,8 @@ const PostDetailPage: React.FC = () => {
                     </div>
 
                     {/* Content */}
-                    <div className="text-base leading-relaxed mb-6 whitespace-pre-wrap text-black dark:text-white">
+                    {post.title && <h1 className="text-2xl font-bold mb-3 text-black dark:text-white">{post.title}</h1>}
+                <div className="text-base leading-relaxed mb-6 whitespace-pre-wrap text-black dark:text-white">
                         {post.content}
                     </div>
 
@@ -180,7 +189,7 @@ const PostDetailPage: React.FC = () => {
                                 <ImagePreview
                                     key={i}
                                     src={url}
-                                    alt="Attachment"
+                                    alt={t('post_attachment')}
                                     className="w-full rounded-sm overflow-hidden bg-zinc-100 dark:bg-zinc-900"
                                     thumbnailClassName="w-full h-auto object-cover max-h-[500px]"
                                 />
@@ -199,26 +208,26 @@ const PostDetailPage: React.FC = () => {
                             }`}
                     >
                         <Icons.Heart className={`w-4 h-4 transition-transform ${isLiked ? 'scale-110 fill-current' : ''}`} fill={isLiked} />
-                        <span>{likes > 0 ? likes : 'Like'}</span>
+                        <span>{likes > 0 ? likes : t('like')}</span>
                     </button>
 
                     <div className="w-px h-6 bg-zinc-200 dark:bg-zinc-800"></div>
 
                     <div className="flex-1 flex items-center justify-center gap-2 py-4 text-xs font-bold text-zinc-500">
                         <Icons.MessageSquare className="w-4 h-4" />
-                        <span>{comments.length > 0 ? comments.length : 'Comment'}</span>
+                        <span>{comments.length > 0 ? comments.length : t('comment')}</span>
                     </div>
                 </div>
             </article>
 
             {/* Comments Section */}
             <div className="bg-zinc-50 dark:bg-zinc-900/30 border border-zinc-200 dark:border-zinc-800 rounded-sm p-6">
-                <h3 className="text-[10px] font-bold uppercase tracking-widest text-zinc-400 mb-6">Discussion ({comments.length})</h3>
+                <h3 className="text-[10px] font-bold uppercase tracking-widest text-zinc-400 mb-6">{t('comments_label')} ({comments.length})</h3>
 
                 {/* List */}
                 <div className="space-y-6 mb-8">
                     {comments.length === 0 && (
-                        <div className="text-center text-zinc-400 text-sm py-4 italic">No comments yet.</div>
+                        <div className="text-center text-zinc-400 text-sm py-4 italic">{t('no_comments')}</div>
                     )}
                     {comments.map(c => (
                         <CommentItem
@@ -233,13 +242,19 @@ const PostDetailPage: React.FC = () => {
 
                 {/* Sticky Input */}
                 <div className="sticky bottom-4 z-10">
-                    <CommentInput
-                        currentUser={currentUser}
-                        value={commentInput}
-                        onChange={setCommentInput}
-                        onSubmit={handleSendComment}
-                        loading={sendingComment}
-                    />
+                    {currentUser ? (
+                        <CommentInput
+                            currentUser={currentUser}
+                            value={commentInput}
+                            onChange={setCommentInput}
+                            onSubmit={handleSendComment}
+                            loading={sendingComment}
+                        />
+                    ) : (
+                        <button onClick={() => navigate('/login')} className="w-full border border-dashed border-zinc-300 dark:border-zinc-700 rounded-full px-4 py-3 text-xs text-zinc-500 hover:text-black dark:hover:text-white transition-colors">
+                            {t('login_to_comment')}
+                        </button>
+                    )}
                 </div>
             </div>
         </div>
@@ -250,14 +265,14 @@ const PostDetailPage: React.FC = () => {
 
 const CommentItem: React.FC<{
     comment: Comment,
-    currentUser: User,
+    currentUser: User | null,
     onDelete: (id: string) => void,
     onReply: (id: string, username: string) => void,
     setReplyingTo?: (id: string) => void
 }> = ({ comment, currentUser, onDelete, onReply, setReplyingTo }) => {
     const { t } = useApp();
-    const isOwner = currentUser.id === comment.userId;
-    const isAdmin = currentUser.role === 'ADMIN';
+    const isOwner = !!currentUser && currentUser.id === comment.userId;
+    const isAdmin = currentUser?.role === 'ADMIN';
 
     return (
         <div id={`comment-${comment.id}`} className="flex gap-3 group animate-fadeIn">
@@ -273,12 +288,12 @@ const CommentItem: React.FC<{
 
                 {/* Actions */}
                 <div className="flex gap-3 mt-2 opacity-0 group-hover:opacity-100 transition-opacity">
-                    <button
+                    {currentUser && <button
                         onClick={() => onReply(comment.id, comment.user?.nickname || '')}
                         className="text-[10px] font-bold text-zinc-400 hover:text-black dark:hover:text-white uppercase tracking-wider"
                     >
                         {t('reply')}
-                    </button>
+                    </button>}
                     {(isOwner || isAdmin) && (
                         <button
                             onClick={() => onDelete(comment.id)}

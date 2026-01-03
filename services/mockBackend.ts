@@ -241,7 +241,7 @@ export const sendOtp = async (email: string, isRegistration: boolean = false): P
             if (existing) {
                 // Logic Requirement: If user exists and is EXPIRED, tell them to Renew (via Login)
                 if (existing.status === 'EXPIRED') {
-                    return { success: false, error: 'Account expired. Please Log In to renew membership.' };
+                    return { success: false, error: 'Account expired. Please log in to renew access.' };
                 }
                 // If DELETED, we might allow re-registration, but for now block to be safe or ask support
                 if (existing.status === 'DELETED') {
@@ -646,12 +646,15 @@ const transformPost = (p: any, likes: number = 0, commentsCount: number = 0, isL
         imageUrls = [p.image_url];
     }
 
-    return {
+  return {
         id: p.id,
         userId: p.user_id,
+        title: p.title || undefined,
         content: p.content,
         imageUrls: imageUrls,
         location: p.location,
+        entryDate: p.entry_date ? new Date(p.entry_date).getTime() : new Date(p.created_at).getTime(),
+        isPublished: p.is_published !== false,
         createdAt: new Date(p.created_at).getTime(),
         likes,
         commentsCount,
@@ -691,14 +694,6 @@ export const getFeed = async (page: number = 1, limit: number = 10): Promise<Fee
 
     try {
         const { data: { user: currentUser } } = await supabase.auth.getUser();
-
-        const { data: profile } = await supabase.from('profiles').select('status, expiration_date').eq('id', currentUser?.id).single();
-
-        if (!profile || profile.status === 'DELETED') return { data: [], count: 0 };
-
-        if (profile.expiration_date && new Date().getTime() > new Date(profile.expiration_date).getTime()) {
-            return { data: [], count: 0 };
-        }
 
         const from = (page - 1) * limit;
         const to = from + limit - 1;
@@ -792,10 +787,13 @@ export const createPost = async (content: string, files: File[] = [], location?:
 
     const { data, error } = await supabase.from('posts').insert({
         user_id: user.id,
+        title: content.trim().split(/\r?\n/)[0].slice(0, 80) || null,
         content,
         image_urls: imageUrls,
         image_url: imageUrls.length > 0 ? imageUrls[0] : null,
-        location: location
+        location: location,
+        entry_date: new Date().toISOString(),
+        is_published: true
     }).select('id').single();
 
     if (error) throw error;

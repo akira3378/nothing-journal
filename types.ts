@@ -58,9 +58,12 @@ export interface Comment {
 export interface Post {
   id: string;
   userId: string;
+  title?: string;
   content: string;
   imageUrls?: string[]; // Updated to support multiple images
   location?: string;
+  entryDate?: number;
+  isPublished?: boolean;
   createdAt: number;
   likes: number;
   isLikedByCurrentUser?: boolean;

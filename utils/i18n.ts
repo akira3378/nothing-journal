@@ -2,28 +2,28 @@ import React, { createContext, useContext, useState, useEffect, ReactNode } from
 import { SiteConfig } from '../types';
 import { getSiteConfig } from '../services/mockBackend';
 
-type Language = 'zh' | 'en';
+export type Language = 'zh' | 'ja' | 'en';
 type Theme = 'light' | 'dark';
 
-const translations = {
+const baseTranslations = {
   zh: {
     app_name: 'NOTHING',
     login: '登录',
-    join_us: '加入我们',
+    join_us: '记录旅程',
     feed: '动态',
     profile: '个人中心',
     admin: '管理后台',
     logout: '登出',
     // Landing Page (Unified English as per design request)
-    landing_hero_1: 'NOTHING',
-    landing_hero_2: 'Everything both nothing.',
-    landing_btn: '申请入驻',
-    transmissions: '信号传输',
-    footer_rights: 'NOTHING CORP. 版权所有.',
+    landing_hero_1: '旅途记录',
+    landing_hero_2: '记录走过的路，也记录路上发生的事。',
+    landing_btn: '浏览旅行记录',
+    transmissions: '旅行记录',
+    footer_rights: '个人旅行档案。',
 
     // Login
-    access_title: '访问权限',
-    enter_void: '进入虚空',
+    access_title: '登录以记录',
+    enter_void: '登录后即可发布和管理旅行记录。',
     email_label: '电子邮件地址',
     processing: '处理中...',
     send_magic_link: '发送登录链接',
@@ -33,7 +33,7 @@ const translations = {
     use_diff_email: '使用其他邮箱',
 
     // Register
-    apply_membership: '申请会员',
+    apply_membership: '开始记录',
     complete_reg: '完成注册',
     join_2000: '加入前沿社区',
     security_notice: '安全提示：',
@@ -61,7 +61,7 @@ const translations = {
     reg_success_title: '欢迎加入',
     reg_success_desc: '注册成功！您现在已是正式成员。',
     start_exploring: '开始探索',
-    membership_expired: '会员资格已过期',
+    membership_expired: '记录权限已过期',
     renew_desc: '请上传新的凭证以申请续期。',
     submit_renewal: '提交续期申请',
     renewal_submitted: '续期申请已提交，请等待审核。',
@@ -69,14 +69,14 @@ const translations = {
 
     // Feed
     new_posts_available: '新动态',
-    whats_on_mind: '分享你的旅程...',
-    share_placeholder: '写点什么...',
+    whats_on_mind: '分享一段旅程...',
+    share_placeholder: '写下今天的旅途记录...',
     image: '图片',
     location: '位置',
     posting: '发布中...',
     publish: '发布',
     quiet_here: '这里很安静，做第一个发言的人。',
-    unknown_member: '未知成员',
+    unknown_member: '作者',
     like: '赞',
     comment: '评论',
     delete: '删除',
@@ -96,7 +96,7 @@ const translations = {
     saving: '保存中...',
     status: '状态',
     identity_tags: '身份标签',
-    member_since: '加入时间',
+    member_since: '开始记录',
     credentials: '会员凭证',
     no_cred: '暂无凭证文件',
     pending_banner: '账户审核中',
@@ -104,7 +104,7 @@ const translations = {
 
     // Admin & Global Config
     administration: '系统管理',
-    members: '成员管理',
+    members: '账户管理',
     content_config: '内容与配置',
     announcements: '公告管理',
     site_config: '站点配置',
@@ -148,7 +148,7 @@ const translations = {
     control_center: '控制中心',
     new_applications: '新申请',
     renewal_requests: '续期申请',
-    member_database: '成员数据库',
+    member_database: '作者账户',
     general_settings_desc: '通用系统设置',
     announcements_comm: '公告与通讯',
     records: '条记录',
@@ -203,7 +203,7 @@ const translations = {
     // Profile
     profile_update_fail: '更新资料失败',
     account_id: '账户 ID',
-    auth_member: '认证成员',
+    auth_member: '已登录作者',
     my_transmissions: '我的动态',
     no_broadcasts: '您还没有发布任何广播。',
     fetch_posts_fail: '获取帖子失败',
@@ -230,25 +230,53 @@ const translations = {
     announcement_content_placeholder: '在此输入内容...',
     max_tags_reached: '已达到标签上限',
     member_email_placeholder: 'member@nothing.tech',
+
+    // Travel journal
+    journal: '旅行记录',
+    journal_subtitle: '记录走过的路，也记录路上发生的事。',
+    explore_journal: '浏览旅行记录',
+    write_note: '记录一段旅程',
+    login_to_write: '登录后记录',
+    latest_journeys: '最近的旅程',
+    travel_notes: '旅行笔记',
+    no_travel_notes: '还没有公开的旅行记录。',
+    travel_note: '旅行记录',
+    travel_note_placeholder: '写下今天看见的风景、走过的路，或旅途中留下的一点想法……',
+    publish_note: '发布记录',
+    login_to_interact: '登录后才能点赞或留言。',
+    login_to_comment: '登录后留下你的回应',
+    read_note: '阅读记录',
+    back_to_journal: '返回旅行记录',
+    journal_entry: '旅途记录',
+    trip_updates: '旅途更新',
+    manage_journal: '管理记录',
+    write: '写作',
+    about: '关于',
+    language_name: '语言',
+    chinese: '中文',
+    japanese: '日本語',
+    english: 'English',
+    published: '已发布',
+    draft: '草稿',
   },
   en: {
     app_name: 'NOTHING',
     login: 'Login',
-    join_us: 'Join Us',
+    join_us: 'Record a journey',
     feed: 'Feed',
     profile: 'Profile',
     admin: 'Admin',
     logout: 'Logout',
     // Landing Page
-    landing_hero_1: 'NOTHING',
-    landing_hero_2: 'Everything both nothing.',
-    landing_btn: 'Become a Member',
-    transmissions: 'Transmissions',
-    footer_rights: 'NOTHING CORP. All rights reserved.',
+    landing_hero_1: 'Travel notes',
+    landing_hero_2: 'A personal archive of roads, places, and moments along the way.',
+    landing_btn: 'Explore the journal',
+    transmissions: 'Travel notes',
+    footer_rights: 'A personal travel archive.',
 
     // Login
-    access_title: 'ACCESS',
-    enter_void: 'Enter the void.',
+    access_title: 'WRITE / MANAGE',
+    enter_void: 'Log in to publish and manage travel notes.',
     email_label: 'Email Address',
     processing: 'PROCESSING...',
     send_magic_link: 'SEND MAGIC LINK',
@@ -258,7 +286,7 @@ const translations = {
     use_diff_email: 'Use different email',
 
     // Register
-    apply_membership: 'APPLY FOR MEMBERSHIP',
+    apply_membership: 'START WRITING',
     complete_reg: 'COMPLETE REGISTRATION',
     join_2000: 'Join the community.',
     security_notice: 'Security Notice:',
@@ -286,7 +314,7 @@ const translations = {
     reg_success_title: 'Welcome Aboard',
     reg_success_desc: 'Registration complete! You are now a full member.',
     start_exploring: 'Start Exploring',
-    membership_expired: 'Membership Expired',
+    membership_expired: 'Writing access expired',
     renew_desc: 'Please upload a new credential to renew your membership.',
     submit_renewal: 'Submit Renewal',
     renewal_submitted: 'Renewal request submitted. Please wait for approval.',
@@ -294,14 +322,14 @@ const translations = {
 
     // Feed
     new_posts_available: 'New Posts Available',
-    whats_on_mind: 'Share your journey...',
-    share_placeholder: 'Write something...',
+    whats_on_mind: 'Share a moment from the road...',
+    share_placeholder: 'Write a travel note...',
     image: 'Image',
     location: 'Location',
     posting: 'POSTING...',
     publish: 'PUBLISH',
     quiet_here: 'It\'s quiet here. Be the first to speak.',
-    unknown_member: 'Unknown Member',
+    unknown_member: 'Author',
     like: 'Like',
     comment: 'Comment',
     delete: 'Delete',
@@ -321,7 +349,7 @@ const translations = {
     saving: 'SAVING...',
     status: 'Status',
     identity_tags: 'Identity Tags',
-    member_since: 'Member Since',
+    member_since: 'Writing Since',
     credentials: 'Membership Credentials',
     no_cred: 'No visual credential on file.',
     pending_banner: 'Under Review',
@@ -329,7 +357,7 @@ const translations = {
 
     // Admin & Global Config
     administration: 'ADMINISTRATION',
-    members: 'Members',
+    members: 'Accounts',
     content_config: 'Content & Config',
     announcements: 'Announcements',
     site_config: 'Site Config',
@@ -373,7 +401,7 @@ const translations = {
     control_center: 'Control Center',
     new_applications: 'New Applications',
     renewal_requests: 'Renewal Requests',
-    member_database: 'Member Database',
+    member_database: 'Author Accounts',
     general_settings_desc: 'General system-wide settings',
     announcements_comm: 'Announcements & Communication',
     records: 'records',
@@ -428,7 +456,7 @@ const translations = {
     // Profile
     profile_update_fail: 'Failed to update profile',
     account_id: 'ACCOUNT ID',
-    auth_member: 'AUTHENTICATED MEMBER',
+    auth_member: 'SIGNED-IN AUTHOR',
     my_transmissions: 'My Transmissions',
     no_broadcasts: 'You haven\'t broadcasted anything yet.',
     fetch_posts_fail: 'Failed to fetch my posts',
@@ -455,8 +483,96 @@ const translations = {
     announcement_content_placeholder: 'Write your message here...',
     max_tags_reached: 'Max tags reached',
     member_email_placeholder: 'member@nothing.tech',
+
+    // Travel journal
+    journal: 'Journal',
+    journal_subtitle: 'Notes from the roads, places, and moments along the way.',
+    explore_journal: 'EXPLORE JOURNAL',
+    write_note: 'WRITE A NOTE',
+    login_to_write: 'LOG IN TO WRITE',
+    latest_journeys: 'Latest journeys',
+    travel_notes: 'Travel notes',
+    no_travel_notes: 'No public travel notes yet.',
+    travel_note: 'Travel note',
+    travel_note_placeholder: 'Write about what you saw, where you went, or what stayed with you…',
+    publish_note: 'PUBLISH NOTE',
+    login_to_interact: 'Log in to like or leave a response.',
+    login_to_comment: 'Log in to leave a response',
+    read_note: 'READ NOTE',
+    back_to_journal: 'BACK TO JOURNAL',
+    journal_entry: 'JOURNAL ENTRY',
+    trip_updates: 'Journey updates',
+    manage_journal: 'MANAGE JOURNAL',
+    write: 'WRITE',
+    about: 'ABOUT',
+    language_name: 'Language',
+    chinese: '中文',
+    japanese: '日本語',
+    english: 'English',
+    published: 'Published',
+    draft: 'Draft',
   }
 };
+
+const translations = {
+  ...baseTranslations,
+  ja: {
+    ...baseTranslations.en,
+    app_name: 'NOTHING',
+    login: 'ログイン',
+    join_us: '記録を始める',
+    feed: '旅行記録',
+    profile: 'プロフィール',
+    admin: '管理',
+    logout: 'ログアウト',
+    landing_hero_1: '旅の記録',
+    landing_hero_2: '歩いた道、見た景色、旅の途中で残ったもの。',
+    landing_btn: '旅行記録を見る',
+    latest_updates: '旅の更新',
+    footer_rights: '旅の記録。',
+    join_us: '旅を記録する',
+    membership_expired: '記録へのアクセス期限が切れています',
+    unknown_member: '作者',
+    member_since: '記録開始',
+    members: 'アカウント管理',
+    member_database: '作者アカウント',
+    auth_member: 'ログイン中の作者',
+    access_title: '記録を管理する',
+    enter_void: 'ログインすると旅行記録を公開・管理できます。',
+    journal: '旅行記録',
+    journal_subtitle: '歩いた道と、そこで出会った時間を記録しています。',
+    explore_journal: '旅行記録を見る',
+    write_note: '旅を記録する',
+    login_to_write: 'ログインして記録する',
+    latest_journeys: '最近の旅',
+    travel_notes: '旅行ノート',
+    no_travel_notes: '公開された旅行記録はまだありません。',
+    travel_note: '旅行記録',
+    travel_note_placeholder: '見た景色、歩いた道、旅の途中で感じたことを書いてください…',
+    publish_note: '記録を公開する',
+    login_to_interact: 'いいねやコメントにはログインが必要です。',
+    login_to_comment: 'ログインしてコメントする',
+    read_note: '記録を読む',
+    back_to_journal: '旅行記録に戻る',
+    journal_entry: '旅の記録',
+    trip_updates: '旅の更新',
+    manage_journal: '記録を管理',
+    write: '記録する',
+    about: 'このサイトについて',
+    language_name: '言語',
+    chinese: '中文',
+    japanese: '日本語',
+    english: 'English',
+    published: '公開中',
+    draft: '下書き',
+  }
+} as const;
+
+export const LANGUAGE_OPTIONS: Array<{ code: Language; label: string; shortLabel: string }> = [
+  { code: 'zh', label: '中文', shortLabel: '中' },
+  { code: 'ja', label: '日本語', shortLabel: '日' },
+  { code: 'en', label: 'English', shortLabel: 'EN' },
+];
 
 interface AppContextType {
   language: Language;
@@ -494,7 +610,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
 
     // Initialize from local storage or system preference
     const savedLang = localStorage.getItem('app_lang') as Language;
-    if (savedLang) setLanguage(savedLang);
+    if (savedLang && LANGUAGE_OPTIONS.some(option => option.code === savedLang)) setLanguage(savedLang);
 
     const savedTheme = localStorage.getItem('app_theme') as Theme;
     if (savedTheme) {

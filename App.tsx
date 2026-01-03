@@ -8,8 +8,10 @@ import { AppProvider, useApp } from './utils/i18n';
 import { Icons, ToastProvider } from './components/UI';
 import { ConfigProvider, theme as antdTheme } from 'antd';
 import zhCN from 'antd/locale/zh_CN';
+import jaJP from 'antd/locale/ja_JP';
 import enUS from 'antd/locale/en_US';
 import 'dayjs/locale/zh-cn';
+import 'dayjs/locale/ja';
 import dayjs from 'dayjs';
 
 // Pages
@@ -93,6 +95,8 @@ const AppContent: React.FC = () => {
   useEffect(() => {
     if (language === 'zh') {
       dayjs.locale('zh-cn');
+    } else if (language === 'ja') {
+      dayjs.locale('ja');
     } else {
       dayjs.locale('en');
     }
@@ -229,7 +233,7 @@ const AppContent: React.FC = () => {
       theme={{
         algorithm: theme === 'dark' ? antdTheme.darkAlgorithm : antdTheme.defaultAlgorithm,
       }}
-      locale={language === 'zh' ? zhCN : enUS}
+      locale={language === 'zh' ? zhCN : language === 'ja' ? jaJP : enUS}
     >
       <HashRouter>
         <div className="min-h-screen bg-white dark:bg-nothing-black text-black dark:text-nothing-white selection:bg-black selection:text-white dark:selection:bg-white dark:selection:text-black font-sans transition-colors duration-300">
@@ -240,21 +244,18 @@ const AppContent: React.FC = () => {
               <Route path="/" element={<LandingPage user={user} />} />
 
               {/* Login Logic */}
-              <Route path="/login" element={user ? <Navigate to="/feed" /> : <LoginPage onLoginSuccess={(u) => setUser(u)} />} />
+              <Route path="/login" element={user ? <Navigate to="/journal" /> : <LoginPage onLoginSuccess={(u) => setUser(u)} />} />
 
               {/* Register/Onboarding Logic */}
               <Route path="/register" element={
                 // If user is fully profiled, go to feed.
-                user ? <Navigate to="/feed" /> :
+                  user ? <Navigate to="/journal" /> :
                   // If user is NOT profiled, stay here (RegisterPage handles both Email entry AND Onboarding)
                   <RegisterPage />
               } />
 
-              <Route path="/feed" element={
-                <ProtectedRoute user={user} requireActive={true}>
-                  <FeedPage user={user!} />
-                </ProtectedRoute>
-              } />
+              <Route path="/journal" element={<FeedPage user={user} />} />
+              <Route path="/feed" element={<Navigate to="/journal" replace />} />
 
               <Route path="/profile" element={
                 <ProtectedRoute user={user}>
@@ -262,11 +263,7 @@ const AppContent: React.FC = () => {
                 </ProtectedRoute>
               } />
 
-              <Route path="/post/:id" element={
-                <ProtectedRoute user={user} requireActive={true}>
-                  <PostDetailPage />
-                </ProtectedRoute>
-              } />
+              <Route path="/post/:id" element={<PostDetailPage />} />
 
               <Route path="/admin" element={
                 <ProtectedRoute user={user} role={UserRole.ADMIN}>
