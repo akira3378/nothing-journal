@@ -29,18 +29,7 @@ export interface User {
   lastLogin?: number; // New Field
 }
 
-export interface Announcement {
-  id: string;
-  title: string;
-  content: string; // HTML or Text
-  type: 'text' | 'image' | 'video';
-  mediaUrl?: string;
-  createdAt: number;
-  isActive: boolean;
-}
-
 export interface SiteConfig {
-  landingVideoUrl: string;
   logoUrl?: string; // Added dynamic logo support
 }
 

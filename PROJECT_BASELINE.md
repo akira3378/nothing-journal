@@ -15,7 +15,7 @@
 
 这是一个可以公开浏览的个人旅行记录网站。访客可以阅读旅行记录、照片、地点和评论；登录用户可以发布、点赞、评论和回复；管理员保留内容和站点配置管理能力。
 
-首页还提供公告、品牌视频和可配置 Logo。界面支持中英文和明暗主题。
+首页保留黑白、颗粒感的视觉风格，但聚焦于“浏览旅行记录 / 开始记录”两条主线；公告和首页视频模块已移除。界面支持中文、日文、英文和明暗主题，默认语言为日文。
 
 当前项目是纯前端单页应用，Supabase 同时承担认证、数据库、文件存储和实时订阅功能。项目没有独立的后端服务目录，也没有自建 API Server。原来的会员/注册逻辑仍保留在代码中，但注册入口不再是主浏览路径。
 
@@ -49,7 +49,7 @@ npm run dev
 
 Vite 开发服务器配置为 `0.0.0.0:3000`。
 
-当前已知的本地验证结果：`npm run build` 曾因当前 `node_modules` 中缺少 `antd` 而失败。`package.json` 已声明 `antd`，后续应先重新安装依赖，再重新执行构建验证。仓库当前没有被 Git 追踪的 `package-lock.json`。
+当前本地验证：`npx tsc --noEmit` 通过，`npm run build` 通过。构建仍提示 Ant Design / vendor bundle 较大，但不是功能错误。`package-lock.json` 已纳入仓库。
 
 ## 3. 目录结构
 
@@ -64,14 +64,14 @@ Vite 开发服务器配置为 `0.0.0.0:3000`。
 │   └── useData.ts           # SWR Feed、用户帖子和当前用户读取
 ├── pages/
 │   ├── LandingPage.tsx      # 首页
-│   ├── LoginPage.tsx        # OTP 登录和过期会员续期
+│   ├── LoginPage.tsx        # 密码/OTP 登录和历史会员续期兼容
 │   ├── RegisterPage.tsx     # OTP 注册和资料提交
 │   ├── FeedPage.tsx         # 动态流、发帖和互动
 │   ├── ProfilePage.tsx      # 个人资料和个人帖子
 │   ├── PostDetailPage.tsx   # 帖子详情和评论树
-│   ├── AdminDashboard.tsx   # 管理员用户、公告和站点配置
+│   ├── AdminDashboard.tsx   # 管理员账户管理
 │   └── App.tsx              # 疑似历史重复入口，当前未被根 index.tsx 使用
-├── components/              # Navbar、公告、图片预览、通用 UI
+├── components/              # Navbar、图片预览和通用 UI
 ├── utils/
 │   ├── i18n.ts              # 中英文和站点配置上下文
 │   └── formatters.ts        # 时间、通知等格式化
@@ -120,10 +120,10 @@ SWR 只负责前端读取缓存和分页：
 
 业务服务集中在 [services/mockBackend.ts](./services/mockBackend.ts)，主要包括：
 
-- Auth：`sendOtp`、`verifyOtp`、`getSession`、`getCurrentUser`、`logout`
+- Auth：`sendOtp`、`verifyOtp`、`signInWithPassword`、`getSession`、`getCurrentUser`、`logout`
 - 用户：`createProfile`、`updateUserProfile`、`renewMembership`
 - 文件：`uploadImage`
-- 首页：公告和 `site_config`
+- 首页：仅读取 `site_config.logo_url`
 - 帖子：读取、创建、删除、点赞
 - 评论：读取、回复、删除和通知创建
 - Realtime：通知、Feed 新帖子和管理员用户变化
@@ -153,8 +153,7 @@ GitHub 仓库改名和 Supabase 项目名称是两个独立系统；Supabase 项
 | `comments` | 评论和嵌套回复 |
 | `likes` | 帖子点赞，`post_id + user_id` 唯一 |
 | `notifications` | 评论和回复通知 |
-| `announcements` | 首页公告 |
-| `site_config` | 首页视频和 Logo 配置 |
+| `site_config` | Logo 配置 |
 
 为了最大程度复用原有 `posts` 表，旅行记录暂不拆分成独立的 trips 表。`posts` 目前增加了三个旅行记录字段：
 
@@ -182,7 +181,6 @@ GitHub 仓库改名和 Supabase 项目名称是两个独立系统；Supabase 项
 |---|---:|
 | profiles | 3 |
 | posts | 2 |
-| announcements | 2 |
 | comments | 4 |
 | likes | 4 |
 | notifications | 2 |
@@ -198,8 +196,6 @@ GitHub 仓库改名和 Supabase 项目名称是两个独立系统；Supabase 项
 - 4 条评论：3 条顶层评论、1 条回复
 - 4 个点赞
 - 2 条通知，当前全部已读
-- 2 条启用中的文字公告：「公告1」「公告2」
-- 首页视频配置为 YouTube 视频：<https://www.youtube.com/watch?v=hFQDs9Mzdtk>
 - Logo URL 当前为空
 
 ## 7. 当前已知问题和风险
@@ -208,13 +204,13 @@ GitHub 仓库改名和 Supabase 项目名称是两个独立系统；Supabase 项
 
 1. `services/mockBackend.ts` 是真实 Supabase 服务，但文件名仍叫 `mockBackend.ts`，容易误导维护者。
 2. 公开旅行记录模式已经启用：匿名用户可以读取已发布记录，登录用户才能写入、点赞、评论和回复。
-3. 原注册资料逻辑仍硬编码 `role: 'ADMIN'`、`status: 'ACTIVE'` 和到期日期 `2026-05-01`，目前不在主导航中使用；后续如果重新开放多人作者注册，需要先重做这部分流程。
-4. Supabase URL 和 publishable/anon key 处理逻辑写在前端，并带有默认值；后续需要重新评估配置方式和密钥轮换策略。任何情况下都不能放入 service role key。
-5. 数据库没有 migration 文件或 migration 历史，结构主要依赖代码顶部的 SQL 注释和既有远程数据库。
-6. 代码顶部的数据库 SQL 注释不是完整的当前 schema 文档，尤其是 `announcements` 和 `comments.parent_id` 需要与实际数据库保持同步。
-7. `getFeed()` 对每个帖子分别查询点赞数、评论数和当前用户点赞状态，存在 N+1 查询问题，数据量增长后需要优化。
-8. 本次已补充 `package-lock.json`，后续应保持 lockfile 与 `package.json` 同步。
-9. Supabase advisor 仍报告 Storage 公共 bucket 允许列目录、旧 profiles/notifications 策略重复、部分外键缺少索引，以及 GraphQL 对 public 表的暴露提示；这些属于下一轮安全和性能专项，不应在没有核对现有图片访问和作者展示逻辑前直接删除。
+3. 原注册资料和会员续期逻辑仍保留用于兼容旧数据，但不在主导航中使用；注册流程仍有历史上的默认管理员字段，重新开放注册前必须重做。
+4. Supabase URL 和 publishable/anon key 处理逻辑写在前端，并带有默认值；任何情况下都不能放入 service role key。
+5. 数据库没有 migration 文件或 migration 历史，结构主要依赖远程数据库和服务文件中的历史 SQL 注释。
+6. `getFeed()` 对每个帖子分别查询点赞数、评论数和当前用户点赞状态，存在 N+1 查询问题，数据量增长后需要优化。
+7. 本轮已清理 `announcements` 表、`site_config.landing_video_url`、公告/视频前端代码和管理后台内容配置页；数据库当前 public 表为 `profiles`、`posts`、`comments`、`likes`、`notifications`、`site_config`。
+8. 本轮已删除 Storage 的宽泛公共列目录策略、重复 profiles 读取策略，并补充点赞/通知外键索引。Advisor 仍提示 GraphQL 暴露、RLS 初始化计划优化、通知/资料多重策略和尚未使用索引；这些需要结合实际访问模型继续专项处理。
+9. 尚未创建 `admin / admin`：Supabase 安全检查阻止了持久化弱密码管理员账户创建。当前密码登录代码已支持用户名映射到邮箱，但需要安全的实际 Auth 账户后才能验证。
 
 ## 8. 后续修改约定
 
@@ -225,7 +221,7 @@ GitHub 仓库改名和 Supabase 项目名称是两个独立系统；Supabase 项
 - 涉及用户权限时，优先检查 `role`、`status`、`expiration_date` 和 RLS，不能只依赖前端路由保护。
 - 不在前端代码中新增 service role key 或其他秘密密钥。
 - 公开页面默认使用 `/journal` 和 `/post/:id`；`/feed` 只作为历史兼容路径。
-- 语言资源集中维护在 `utils/i18n.ts`，语言选项由 `LANGUAGE_OPTIONS` 统一驱动，目前支持中文、日文、英文。
+- 语言资源集中维护在 `utils/i18n.ts`，语言选项由 `LANGUAGE_OPTIONS` 统一驱动，目前支持中文、日文、英文，默认日文。
 - 登录入口表达为“写作/管理”，不要重新把登录设为浏览网站的前置门槛。
 - 每次业务修改后至少执行 TypeScript/Vite 构建验证；涉及数据库时再执行对应的 Supabase 查询验证。
 - 修改数据库前先记录数据影响范围，避免直接改变现有用户、帖子、评论和凭证数据。

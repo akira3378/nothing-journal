@@ -4,7 +4,7 @@
 
 
 import { createClient, SupabaseClient, Session, EmailOtpType, RealtimeChannel } from '@supabase/supabase-js';
-import { User, UserRole, UserStatus, Announcement, Post, ApiResponse, Comment, SiteConfig, Notification, NotificationType } from '../types';
+import { User, UserRole, UserStatus, Post, ApiResponse, Comment, SiteConfig, Notification, NotificationType } from '../types';
 import imageCompression from 'browser-image-compression';
 
 /*
@@ -73,12 +73,11 @@ import imageCompression from 'browser-image-compression';
   -- 6. Site Config
   create table site_config (
     id bigint primary key,
-    landing_video_url text,
     logo_url text -- New
   );
   
   -- Insert default config row if not exists
-  insert into site_config (id, landing_video_url) values (1, '') on conflict do nothing;
+  insert into site_config (id) values (1) on conflict do nothing;
 */
 
 // --- Configuration Management ---
@@ -225,6 +224,22 @@ export const getSession = async (): Promise<Session | null> => {
     if (!supabase) return null;
     const { data: { session } } = await supabase.auth.getSession();
     return session;
+};
+
+export const signInWithPassword = async (identifier: string, password: string): Promise<ApiResponse<Session>> => {
+    const check = ensureClient();
+    if (!check.success) return check;
+
+    const normalized = identifier.trim().toLowerCase();
+    const email = normalized.includes('@') ? normalized : `${normalized}@nothing.local`;
+
+    try {
+        const { data, error } = await supabase!.auth.signInWithPassword({ email, password });
+        if (error) return { success: false, error: error.message };
+        return { success: true, data: data.session || undefined };
+    } catch (err: any) {
+        return { success: false, error: err.message || 'Login failed' };
+    }
 };
 
 // Step 1: Send OTP (Code)
@@ -519,83 +534,15 @@ export const getCurrentUser = async (): Promise<User | null> => {
     };
 };
 
-// --- Content Service ---
-
-export const getAnnouncements = async (): Promise<Announcement[]> => {
-    if (!supabase) return [];
-    const { data, error } = await supabase
-        .from('announcements')
-        .select('*')
-        .eq('is_active', true)
-        .order('created_at', { ascending: false });
-
-    if (error) {
-        dispatchFatalError(error, 'getAnnouncements');
-        return [];
-    }
-
-    return (data || []).map((a: any) => ({
-        id: a.id,
-        title: a.title,
-        content: a.content,
-        type: a.type,
-        createdAt: new Date(a.created_at).getTime(),
-        isActive: a.is_active
-    }));
-};
-
-export const getAllAnnouncements = async (): Promise<Announcement[]> => {
-    if (!supabase) return [];
-    const { data, error } = await supabase.from('announcements').select('*').order('created_at', { ascending: false });
-
-    if (error) {
-        dispatchFatalError(error, 'getAllAnnouncements');
-        return [];
-    }
-
-    return (data || []).map((a: any) => ({
-        id: a.id,
-        title: a.title,
-        content: a.content,
-        type: a.type,
-        createdAt: new Date(a.created_at).getTime(),
-        isActive: a.is_active
-    }));
-};
-
-export const createAnnouncement = async (announcement: Omit<Announcement, 'id' | 'createdAt'>) => {
-    if (!supabase) return;
-    await supabase.from('announcements').insert({
-        title: announcement.title,
-        content: announcement.content,
-        type: announcement.type,
-        is_active: announcement.isActive
-    });
-};
-
-export const deleteAnnouncement = async (id: string) => {
-    if (!supabase) return;
-    await supabase.from('announcements').delete().eq('id', id);
-};
-
-export const updateAnnouncement = async (id: string, updates: Partial<Announcement>) => {
-    if (!supabase) return;
-    const payload: any = {};
-    if (updates.title) payload.title = updates.title;
-    if (updates.content) payload.content = updates.content;
-
-    await supabase.from('announcements').update(payload).eq('id', id);
-};
-
 // --- Site Config Service ---
 
 export const getSiteConfig = async (): Promise<SiteConfig> => {
-    if (!supabase) return { landingVideoUrl: '', logoUrl: '' };
+    if (!supabase) return { logoUrl: '' };
 
     try {
         const { data, error } = await supabase
             .from('site_config')
-            .select('landing_video_url, logo_url')
+            .select('logo_url')
             .eq('id', 1)
             .maybeSingle();
 
@@ -605,16 +552,15 @@ export const getSiteConfig = async (): Promise<SiteConfig> => {
                 dispatchFatalError(error, 'getSiteConfig');
             }
             console.warn("Error fetching site config:", error.message);
-            return { landingVideoUrl: '', logoUrl: '' };
+            return { logoUrl: '' };
         }
 
         return {
-            landingVideoUrl: data?.landing_video_url || '',
             logoUrl: data?.logo_url || ''
         };
     } catch (e) {
         console.error("Site Config fetch exception:", e);
-        return { landingVideoUrl: '', logoUrl: '' };
+        return { logoUrl: '' };
     }
 };
 
@@ -622,7 +568,6 @@ export const updateSiteConfig = async (config: Partial<SiteConfig>) => {
     if (!supabase) return;
 
     const payload: any = {};
-    if (config.landingVideoUrl !== undefined) payload.landing_video_url = config.landingVideoUrl;
     if (config.logoUrl !== undefined) payload.logo_url = config.logoUrl;
 
     const { error } = await supabase

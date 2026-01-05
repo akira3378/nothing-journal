@@ -105,11 +105,7 @@ const baseTranslations = {
     // Admin & Global Config
     administration: '系统管理',
     members: '账户管理',
-    content_config: '内容与配置',
-    announcements: '公告管理',
     site_config: '站点配置',
-    new_announcement: '发布新公告',
-    edit_announcement: '编辑公告',
     title: '标题',
     content: '内容',
     history: '历史记录',
@@ -127,8 +123,6 @@ const baseTranslations = {
     // Admin Modal
     edit_user: '编辑用户',
     expiration_date: '过期日期',
-    video_url: '首页视频链接 (YouTube)',
-    video_hint: '输入 YouTube 视频地址 (例如 https://www.youtube.com/watch?v=...)',
     logo_upload: '站点 LOGO 设置',
     logo_desc: '上传透明背景 PNG (建议 128x128)。这也将更新浏览器图标。',
     remove_logo: '恢复默认 LOGO',
@@ -150,9 +144,7 @@ const baseTranslations = {
     renewal_requests: '续期申请',
     member_database: '作者账户',
     general_settings_desc: '通用系统设置',
-    announcements_comm: '公告与通讯',
     records: '条记录',
-    no_announcements: '暂无公告',
     user_col: '用户',
     actions_col: '操作',
     page: '页',
@@ -166,13 +158,9 @@ const baseTranslations = {
     user_update_fail: '用户更新失败',
     fetch_fail: '获取数据失败',
     status_updated: '用户状态已更新为',
-    announcement_updated: '公告已更新',
-    announcement_published: '公告已发布',
     config_saved: '站点配置已保存',
     config_save_fail: '保存配置失败',
     logo_upload_fail: 'Logo 上传失败',
-    announcement_deleted: '公告已删除',
-    delete_announcement_confirm: '删除此公告？',
     confirm_action: '确定要执行此操作吗：',
     filter_email: '搜索邮箱...',
     filter_country: '筛选国家',
@@ -215,7 +203,6 @@ const baseTranslations = {
     feature_global_desc: '寻找你的频率。',
     feature_identity_title: '真实身份',
     feature_identity_desc: '做你想做的人。',
-    latest_updates: '公告',
     read_more: '阅读更多',
 
     // Placeholders
@@ -258,6 +245,15 @@ const baseTranslations = {
     english: 'English',
     published: '已发布',
     draft: '草稿',
+    username: '用户名',
+    password: '密码',
+    password_placeholder: '输入密码',
+    password_login: '登录',
+    use_otp: '使用邮箱验证码登录',
+    use_password: '使用用户名和密码登录',
+    invalid_credentials: '用户名或密码错误。',
+    profile_not_found: '找不到作者资料。',
+    account_unavailable: '账户当前不可用。',
   },
   en: {
     app_name: 'NOTHING',
@@ -358,11 +354,7 @@ const baseTranslations = {
     // Admin & Global Config
     administration: 'ADMINISTRATION',
     members: 'Accounts',
-    content_config: 'Content & Config',
-    announcements: 'Announcements',
     site_config: 'Site Config',
-    new_announcement: 'New Announcement',
-    edit_announcement: 'Edit Announcement',
     title: 'Title',
     content: 'Content',
     history: 'History',
@@ -380,8 +372,6 @@ const baseTranslations = {
     // Admin Modal
     edit_user: 'Edit User',
     expiration_date: 'Expiration Date',
-    video_url: 'Homepage Video URL (YouTube)',
-    video_hint: 'Enter YouTube URL (e.g. https://www.youtube.com/watch?v=...)',
     logo_upload: 'Site Logo Settings',
     logo_desc: 'Upload a transparent PNG (rec. 128x128). This will also update the browser favicon.',
     remove_logo: 'Restore Default Logo',
@@ -403,9 +393,7 @@ const baseTranslations = {
     renewal_requests: 'Renewal Requests',
     member_database: 'Author Accounts',
     general_settings_desc: 'General system-wide settings',
-    announcements_comm: 'Announcements & Communication',
     records: 'records',
-    no_announcements: 'No announcements found.',
     user_col: 'User',
     actions_col: 'Actions',
     page: 'Page',
@@ -419,13 +407,9 @@ const baseTranslations = {
     user_update_fail: 'Failed to update user',
     fetch_fail: 'Failed to fetch data',
     status_updated: 'User status updated to',
-    announcement_updated: 'Announcement updated',
-    announcement_published: 'Announcement published',
     config_saved: 'Site configuration saved',
     config_save_fail: 'Failed to save config',
     logo_upload_fail: 'Logo upload failed',
-    announcement_deleted: 'Announcement deleted',
-    delete_announcement_confirm: 'Delete this announcement?',
     confirm_action: 'Are you sure you want to',
     filter_email: 'Search email...',
     filter_country: 'Filter Country',
@@ -468,7 +452,6 @@ const baseTranslations = {
     feature_global_desc: 'Find your frequency.',
     feature_identity_title: 'True Identity',
     feature_identity_desc: 'Be who you want to be.',
-    latest_updates: 'Announcements',
     read_more: 'Read More',
 
     // Placeholders
@@ -511,6 +494,15 @@ const baseTranslations = {
     english: 'English',
     published: 'Published',
     draft: 'Draft',
+    username: 'Username',
+    password: 'Password',
+    password_placeholder: 'Enter password',
+    password_login: 'LOG IN',
+    use_otp: 'Use email code instead',
+    use_password: 'Use username and password instead',
+    invalid_credentials: 'Invalid username or password.',
+    profile_not_found: 'Author profile not found.',
+    account_unavailable: 'This account is not available.',
   }
 };
 
@@ -520,7 +512,6 @@ const translations = {
     ...baseTranslations.en,
     app_name: 'NOTHING',
     login: 'ログイン',
-    join_us: '記録を始める',
     feed: '旅行記録',
     profile: 'プロフィール',
     admin: '管理',
@@ -528,7 +519,6 @@ const translations = {
     landing_hero_1: '旅の記録',
     landing_hero_2: '歩いた道、見た景色、旅の途中で残ったもの。',
     landing_btn: '旅行記録を見る',
-    latest_updates: '旅の更新',
     footer_rights: '旅の記録。',
     join_us: '旅を記録する',
     membership_expired: '記録へのアクセス期限が切れています',
@@ -565,6 +555,15 @@ const translations = {
     english: 'English',
     published: '公開中',
     draft: '下書き',
+    username: 'ユーザー名',
+    password: 'パスワード',
+    password_placeholder: 'パスワードを入力',
+    password_login: 'ログイン',
+    use_otp: 'メールコードを使う',
+    use_password: 'ユーザー名とパスワードを使う',
+    invalid_credentials: 'ユーザー名またはパスワードが正しくありません。',
+    profile_not_found: '作者プロフィールが見つかりません。',
+    account_unavailable: 'このアカウントは現在利用できません。',
   }
 } as const;
 
@@ -585,19 +584,19 @@ interface AppContextType {
 }
 
 export const AppContext = createContext<AppContextType>({
-  language: 'en',
+  language: 'ja',
   setLanguage: () => { },
   theme: 'light',
   toggleTheme: () => { },
   t: (key) => key,
-  siteConfig: { landingVideoUrl: '', logoUrl: '' },
+  siteConfig: { logoUrl: '' },
   refreshConfig: () => { }
 });
 
 export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
-  const [language, setLanguage] = useState<Language>('en');
+  const [language, setLanguage] = useState<Language>('ja');
   const [theme, setTheme] = useState<Theme>('light');
-  const [siteConfig, setSiteConfig] = useState<SiteConfig>({ landingVideoUrl: '', logoUrl: '' });
+  const [siteConfig, setSiteConfig] = useState<SiteConfig>({ logoUrl: '' });
 
   // Initial config fetch
   const refreshConfig = async () => {

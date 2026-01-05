@@ -191,7 +191,7 @@ export const Navbar: React.FC<NavbarProps> = ({ user, onLogout }) => {
                         {/* Desktop Nav Links */}
                         <div className="hidden md:flex items-center space-x-4">
                             {!user ? (
-                                location.pathname !== '/' && (
+                                location.pathname !== '/' && location.pathname !== '/journal' && (
                                     <>
                                         <button onClick={() => navigate('/journal')} className="text-zinc-600 dark:text-zinc-300 hover:text-black dark:hover:text-white px-3 py-2 rounded-md text-sm font-medium transition-colors">{t('journal')}</button>
                                         <button onClick={() => navigate('/login')} className="bg-black dark:bg-white text-white dark:text-black hover:bg-zinc-800 dark:hover:bg-gray-200 px-4 py-2 rounded-sm text-sm font-bold transition-colors">{t('write')}</button>

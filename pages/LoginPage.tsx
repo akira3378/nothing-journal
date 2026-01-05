@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
-import { sendOtp, verifyOtp, getCurrentUser, logout, renewMembership } from '../services/mockBackend';
+import { sendOtp, verifyOtp, signInWithPassword, getCurrentUser, logout, renewMembership } from '../services/mockBackend';
 import { User, UserStatus } from '../types';
 import { useApp } from '../utils/i18n';
 import { Icons } from '../components/UI';
@@ -11,6 +11,9 @@ interface LoginProps {
 
 const LoginPage: React.FC<LoginProps> = ({ onLoginSuccess }) => {
     const [email, setEmail] = useState('');
+    const [username, setUsername] = useState('admin');
+    const [password, setPassword] = useState('');
+    const [loginMode, setLoginMode] = useState<'password' | 'otp'>('password');
     const [otp, setOtp] = useState('');
     const [step, setStep] = useState<'email' | 'otp' | 'renew'>('email');
     const [loading, setLoading] = useState(false);
@@ -57,6 +60,34 @@ const LoginPage: React.FC<LoginProps> = ({ onLoginSuccess }) => {
             }
         } catch (err) {
             setError('Network error.');
+        } finally {
+            setLoading(false);
+        }
+    };
+
+    const handlePasswordLogin = async (e: React.FormEvent) => {
+        e.preventDefault();
+        setLoading(true);
+        setError('');
+
+        try {
+            const res = await signInWithPassword(username, password);
+            if (!res.success) {
+                setError(res.error || t('invalid_credentials'));
+                return;
+            }
+
+            const user = await getCurrentUser();
+            if (!user) {
+                setError(t('profile_not_found'));
+            } else if (user.status === UserStatus.DELETED || user.status === UserStatus.REJECTED) {
+                await logout();
+                setError(t('account_unavailable'));
+            } else {
+                onLoginSuccess(user);
+            }
+        } catch {
+            setError(t('invalid_credentials'));
         } finally {
             setLoading(false);
         }
@@ -142,7 +173,26 @@ const LoginPage: React.FC<LoginProps> = ({ onLoginSuccess }) => {
                         </div>
                     )}
 
-                    {step === 'email' && (
+                    {step === 'email' && loginMode === 'password' && (
+                        <fieldset disabled={loading} className="group">
+                            <form onSubmit={handlePasswordLogin} className="space-y-6">
+                                <div>
+                                    <label htmlFor="username" className="block text-xs font-bold text-zinc-500 uppercase tracking-wider mb-1">{t('username')}</label>
+                                    <input id="username" type="text" required value={username} onChange={e => setUsername(e.target.value)} placeholder="admin" className="mt-1 block w-full bg-white dark:bg-black border border-zinc-300 dark:border-zinc-700 rounded-sm py-3 px-4 text-black dark:text-white focus:outline-none focus:border-black dark:focus:border-white" />
+                                </div>
+                                <div>
+                                    <label htmlFor="password" className="block text-xs font-bold text-zinc-500 uppercase tracking-wider mb-1">{t('password')}</label>
+                                    <input id="password" type="password" required value={password} onChange={e => setPassword(e.target.value)} placeholder={t('password_placeholder')} className="mt-1 block w-full bg-white dark:bg-black border border-zinc-300 dark:border-zinc-700 rounded-sm py-3 px-4 text-black dark:text-white focus:outline-none focus:border-black dark:focus:border-white" />
+                                </div>
+                                <button type="submit" disabled={loading} className="w-full flex justify-center items-center gap-2 py-3 px-4 text-sm font-bold rounded-sm text-white dark:text-black bg-black dark:bg-white disabled:opacity-50">
+                                    {loading ? t('processing') : t('password_login')}
+                                </button>
+                                <button type="button" onClick={() => setLoginMode('otp')} className="w-full text-xs text-zinc-500 hover:text-black dark:hover:text-white underline">{t('use_otp')}</button>
+                            </form>
+                        </fieldset>
+                    )}
+
+                    {step === 'email' && loginMode === 'otp' && (
                         <fieldset disabled={loading} className="group">
                             <form onSubmit={handleSendCode} className="space-y-6">
                                 <div>
@@ -165,6 +215,7 @@ const LoginPage: React.FC<LoginProps> = ({ onLoginSuccess }) => {
                                     {loading && <span className="animate-spin h-4 w-4 border-2 border-white dark:border-black border-t-transparent rounded-full"></span>}
                                     {loading ? t('processing') : 'SEND CODE'}
                                 </button>
+                                <button type="button" onClick={() => setLoginMode('password')} className="w-full text-xs text-zinc-500 hover:text-black dark:hover:text-white underline mt-4">{t('use_password')}</button>
                             </form>
                         </fieldset>
                     )}
