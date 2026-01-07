@@ -64,12 +64,12 @@ Vite 开发服务器配置为 `0.0.0.0:3000`。
 │   └── useData.ts           # SWR Feed、用户帖子和当前用户读取
 ├── pages/
 │   ├── LandingPage.tsx      # 首页
-│   ├── LoginPage.tsx        # 密码/OTP 登录和历史会员续期兼容
-│   ├── RegisterPage.tsx     # OTP 注册和资料提交
+│   ├── LoginPage.tsx        # 密码/OTP 登录
+│   ├── RegisterPage.tsx     # 已移除；旧路径重定向到登录
 │   ├── FeedPage.tsx         # 动态流、发帖和互动
 │   ├── ProfilePage.tsx      # 个人资料和个人帖子
 │   ├── PostDetailPage.tsx   # 帖子详情和评论树
-│   ├── AdminDashboard.tsx   # 管理员账户管理
+│   ├── AdminDashboard.tsx   # 已移除；当前无审核后台
 │   └── App.tsx              # 疑似历史重复入口，当前未被根 index.tsx 使用
 ├── components/              # Navbar、图片预览和通用 UI
 ├── utils/
@@ -86,22 +86,13 @@ Vite 开发服务器配置为 `0.0.0.0:3000`。
 |---|---|---|
 | `/` | Landing | 公开 |
 | `/login` | 登录 | 未登录 |
-| `/register` | 注册/资料提交 | 未登录或未完成资料 |
+| `/register` | 旧注册路径，重定向到 `/login` | 公开 |
 | `/journal` | 旅行记录列表 | 公开 |
 | `/feed` | 旧路径，重定向到 `/journal` | 公开 |
 | `/profile` | 个人资料 | 已登录 |
 | `/post/:id` | 单条旅行记录 | 公开 |
-| `/admin` | 管理后台 | `role = ADMIN` |
 
-业务状态枚举定义在 [types.ts](./types.ts)：
-
-- `PENDING`：等待审核
-- `ACTIVE`：有效会员
-- `REJECTED`：审核拒绝
-- `DELETED`：已停用
-- `EXPIRED`：会员到期
-
-需要注意：数据库中的 `status` 不会自动变成 `EXPIRED`。当前代码在 `getCurrentUser()` 中根据 `expiration_date` 动态判断；因此数据库可能仍保存 `ACTIVE`，但前端运行时显示为 `EXPIRED`。
+当前账户模型只保留登录身份、作者资料和 `ADMIN` 角色；注册审核、会员状态和到期时间模型已移除。
 
 ## 5. 前端到 Supabase 的数据流
 
@@ -121,13 +112,12 @@ SWR 只负责前端读取缓存和分页：
 业务服务集中在 [services/mockBackend.ts](./services/mockBackend.ts)，主要包括：
 
 - Auth：`sendOtp`、`verifyOtp`、`signInWithPassword`、`getSession`、`getCurrentUser`、`logout`
-- 用户：`createProfile`、`updateUserProfile`、`renewMembership`
+- 用户：`updateUserProfile`
 - 文件：`uploadImage`
 - 首页：仅读取 `site_config.logo_url`
 - 帖子：读取、创建、删除、点赞
 - 评论：读取、回复、删除和通知创建
-- Realtime：通知、Feed 新帖子和管理员用户变化
-- 管理员：用户列表、审核、状态、角色和到期时间
+- Realtime：通知和 Feed 新帖子
 
 ## 6. Supabase 当前基准
 
@@ -148,7 +138,7 @@ GitHub 仓库改名和 Supabase 项目名称是两个独立系统；Supabase 项
 
 | 表 | 主要用途 |
 |---|---|
-| `profiles` | 用户资料、角色、审核状态、到期时间 |
+| `profiles` | 用户资料和内容管理角色 |
 | `posts` | 动态帖子和图片 |
 | `comments` | 评论和嵌套回复 |
 | `likes` | 帖子点赞，`post_id + user_id` 唯一 |
@@ -165,13 +155,12 @@ GitHub 仓库改名和 Supabase 项目名称是两个独立系统；Supabase 项
 
 ### Storage bucket
 
-代码中使用三个 bucket：
+代码中使用两个 bucket：
 
 - `avatars`
 - `posts`
-- `credentials`
 
-图片上传前会压缩并转换为 WebP。头像、帖子图片和会员凭证采用不同的尺寸和压缩参数。
+图片上传前会压缩并转换为 WebP。当前只使用头像和帖子图片。
 
 ### 当前数据快照
 
@@ -204,13 +193,14 @@ GitHub 仓库改名和 Supabase 项目名称是两个独立系统；Supabase 项
 
 1. `services/mockBackend.ts` 是真实 Supabase 服务，但文件名仍叫 `mockBackend.ts`，容易误导维护者。
 2. 公开旅行记录模式已经启用：匿名用户可以读取已发布记录，登录用户才能写入、点赞、评论和回复。
-3. 原注册资料和会员续期逻辑仍保留用于兼容旧数据，但不在主导航中使用；注册流程仍有历史上的默认管理员字段，重新开放注册前必须重做。
+3. 注册、资料审核和会员续期流程已移除；旧 `/register` 路径仅保留重定向兼容。账户资料仍可在登录后编辑。
 4. Supabase URL 和 publishable/anon key 处理逻辑写在前端，并带有默认值；任何情况下都不能放入 service role key。
 5. 数据库没有 migration 文件或 migration 历史，结构主要依赖远程数据库和服务文件中的历史 SQL 注释。
 6. `getFeed()` 对每个帖子分别查询点赞数、评论数和当前用户点赞状态，存在 N+1 查询问题，数据量增长后需要优化。
-7. 本轮已清理 `announcements` 表、`site_config.landing_video_url`、公告/视频前端代码和管理后台内容配置页；数据库当前 public 表为 `profiles`、`posts`、`comments`、`likes`、`notifications`、`site_config`。
-8. 本轮已删除 Storage 的宽泛公共列目录策略、重复 profiles 读取策略，并补充点赞/通知外键索引。Advisor 仍提示 GraphQL 暴露、RLS 初始化计划优化、通知/资料多重策略和尚未使用索引；这些需要结合实际访问模型继续专项处理。
-9. 尚未创建 `admin / admin`：Supabase 安全检查阻止了持久化弱密码管理员账户创建。当前密码登录代码已支持用户名映射到邮箱，但需要安全的实际 Auth 账户后才能验证。
+7. 本轮已清理 `announcements` 表、`site_config.landing_video_url`、公告/视频前端代码和管理后台内容配置页；并从 `profiles` 删除凭证、续期、审核状态、到期时间和登录时间字段，从 `posts` 删除旧单图字段和旧点赞计数字段。数据库当前 public 表为 `profiles`、`posts`、`comments`、`likes`、`notifications`、`site_config`。
+8. 本轮已删除 Storage 的宽泛公共列目录策略、重复 profiles 读取策略、注册/后台写入策略，并补充点赞/通知外键索引。Advisor 仍提示 GraphQL 暴露、RLS 初始化计划优化、通知/资料多重策略和尚未使用索引；这些需要结合实际访问模型继续专项处理。
+9. 尚未创建 `admin / admin`：Supabase 安全检查阻止了持久化弱密码管理员账户创建。当前密码登录代码已支持用户名映射到邮箱；既有账户可以在 Supabase SQL Editor 中设置安全密码并提升为管理员。
+10. `credentials` Storage bucket 仍有 2 个历史对象。Supabase 禁止直接 SQL 删除 Storage 对象，需要在 Storage API 或 Dashboard 中清理 bucket；前端已经完全不再引用该 bucket。
 
 ## 8. 后续修改约定
 
@@ -218,7 +208,7 @@ GitHub 仓库改名和 Supabase 项目名称是两个独立系统；Supabase 项
 
 - 修改前先确认是否涉及 Supabase schema、RLS、Storage 或 Auth。
 - 涉及数据库结构时，先确认远程当前 schema，再设计 migration；不要只根据代码顶部的旧 SQL 注释修改。
-- 涉及用户权限时，优先检查 `role`、`status`、`expiration_date` 和 RLS，不能只依赖前端路由保护。
+- 涉及用户权限时，优先检查 `role` 和 RLS，不能只依赖前端路由保护。
 - 不在前端代码中新增 service role key 或其他秘密密钥。
 - 公开页面默认使用 `/journal` 和 `/post/:id`；`/feed` 只作为历史兼容路径。
 - 语言资源集中维护在 `utils/i18n.ts`，语言选项由 `LANGUAGE_OPTIONS` 统一驱动，目前支持中文、日文、英文，默认日文。
@@ -253,7 +243,7 @@ Supabase Ref：dyspuewvcrgzlvoebson
 - 主导航不再把“加入我们/申请会员”作为入口，改为旅行记录和写作入口
 - 语言切换从中英改为中文 / 日本語 / English，并由 `LANGUAGE_OPTIONS` 统一维护
 - `posts` 增加 `title`、`entry_date`、`is_published`，没有新建重复旅行表
-- 清理并收紧帖子、评论、点赞、公告和站点配置相关的关键写入权限
+- 清理并收紧帖子、评论、点赞和站点配置相关的关键写入权限
 - 删除未使用且路径错误的重复页面入口 `pages/App.tsx`
 
 验证结果：

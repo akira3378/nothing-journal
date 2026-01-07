@@ -2,7 +2,7 @@
 import React, { useState, useEffect } from 'react';
 import { HashRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { Navbar } from './components/Navbar';
-import { User, UserRole, UserStatus } from './types';
+import { User } from './types';
 import { getCurrentUser, logout, isBackendConfigured, configureBackend, getSession, SYSTEM_ERROR_EVENT } from './services/mockBackend';
 import { AppProvider, useApp } from './utils/i18n';
 import { Icons, ToastProvider } from './components/UI';
@@ -17,29 +17,17 @@ import dayjs from 'dayjs';
 // Pages
 import LandingPage from './pages/LandingPage';
 import LoginPage from './pages/LoginPage';
-import RegisterPage from './pages/RegisterPage';
 import FeedPage from './pages/FeedPage';
 import ProfilePage from './pages/ProfilePage';
-import AdminDashboard from './pages/AdminDashboard';
 import PostDetailPage from './pages/PostDetailPage';
 
 interface ProtectedRouteProps {
   user: User | null;
   children: React.ReactNode;
-  role?: UserRole;
-  requireActive?: boolean;
 }
 
-const ProtectedRoute: React.FC<ProtectedRouteProps> = ({ user, children, role, requireActive = false }) => {
+const ProtectedRoute: React.FC<ProtectedRouteProps> = ({ user, children }) => {
   if (!user) return <Navigate to="/login" />;
-
-  // Admin Role Check
-  if (role && user.role !== role) return <Navigate to="/" />;
-
-  // Active Status Check (e.g. for Feed)
-  if (requireActive && user.status !== UserStatus.ACTIVE && user.role !== UserRole.ADMIN) {
-    return <Navigate to="/profile" />;
-  }
 
   return <>{children}</>;
 };
@@ -246,13 +234,8 @@ const AppContent: React.FC = () => {
               {/* Login Logic */}
               <Route path="/login" element={user ? <Navigate to="/journal" /> : <LoginPage onLoginSuccess={(u) => setUser(u)} />} />
 
-              {/* Register/Onboarding Logic */}
-              <Route path="/register" element={
-                // If user is fully profiled, go to feed.
-                  user ? <Navigate to="/journal" /> :
-                  // If user is NOT profiled, stay here (RegisterPage handles both Email entry AND Onboarding)
-                  <RegisterPage />
-              } />
+              <Route path="/register" element={<Navigate to="/login" replace />} />
+              <Route path="/admin" element={<Navigate to="/journal" replace />} />
 
               <Route path="/journal" element={<FeedPage user={user} />} />
               <Route path="/feed" element={<Navigate to="/journal" replace />} />
@@ -265,11 +248,6 @@ const AppContent: React.FC = () => {
 
               <Route path="/post/:id" element={<PostDetailPage />} />
 
-              <Route path="/admin" element={
-                <ProtectedRoute user={user} role={UserRole.ADMIN}>
-                  <AdminDashboard />
-                </ProtectedRoute>
-              } />
             </Routes>
           </main>
         </div>

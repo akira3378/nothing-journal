@@ -4,29 +4,16 @@ export enum UserRole {
   ADMIN = 'ADMIN',
 }
 
-export enum UserStatus {
-  PENDING = 'PENDING',
-  ACTIVE = 'ACTIVE',
-  REJECTED = 'REJECTED',
-  DELETED = 'DELETED',
-  EXPIRED = 'EXPIRED', // New Status
-}
-
 export interface User {
   id: string;
   email: string;
   nickname: string;
   role: UserRole;
-  status: UserStatus;
-  credentialUrl?: string;
   avatarUrl?: string;
   jobTags: string[];
   createdAt: number;
-  expirationDate?: number; // New Field
-  isRenewal?: boolean; // New Field to track if it's a renewal application
   country?: string;
   city?: string;
-  lastLogin?: number; // New Field
 }
 
 export interface SiteConfig {

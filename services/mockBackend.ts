@@ -4,7 +4,7 @@
 
 
 import { createClient, SupabaseClient, Session, EmailOtpType, RealtimeChannel } from '@supabase/supabase-js';
-import { User, UserRole, UserStatus, Post, ApiResponse, Comment, SiteConfig, Notification, NotificationType } from '../types';
+import { User, UserRole, Post, ApiResponse, Comment, SiteConfig, Notification, NotificationType } from '../types';
 import imageCompression from 'browser-image-compression';
 
 /*
@@ -17,14 +17,9 @@ import imageCompression from 'browser-image-compression';
     nickname text,
     job_tags text[],
     role text default 'USER', -- 'USER', 'ADMIN'
-    status text default 'PENDING', -- 'PENDING', 'ACTIVE', 'REJECTED', 'DELETED', 'EXPIRED'
-    credential_url text,
     avatar_url text,
-    expiration_date timestamptz, -- New
-    is_renewal boolean default false, -- New
     country text, -- New
     city text, -- New
-    last_login timestamptz, -- New
     created_at timestamptz default now()
   );
 
@@ -34,7 +29,6 @@ import imageCompression from 'browser-image-compression';
     user_id uuid references profiles(id) on delete cascade,
     content text,
     image_urls text[],
-    image_url text, -- legacy support
     location text,
     created_at timestamptz default now()
   );
@@ -167,7 +161,7 @@ const ensureClient = (): ApiResponse<any> => {
 };
 
 // --- Helper: Image Compression ---
-const compressImage = async (file: File, bucket: 'avatars' | 'posts' | 'credentials'): Promise<File> => {
+const compressImage = async (file: File, bucket: 'avatars' | 'posts'): Promise<File> => {
     // Only compress images
     if (!file.type.startsWith('image/')) return file;
 
@@ -185,7 +179,7 @@ const compressImage = async (file: File, bucket: 'avatars' | 'posts' | 'credenti
                 quality: 0.7,             // Lower quality = smaller file
                 initialQuality: 0.7
             };
-        } else if (bucket === 'posts') {
+        } else {
             // Posts: Moderate compression (balance quality & size, ~500KB target)
             options = {
                 maxSizeMB: 0.5,
@@ -194,16 +188,6 @@ const compressImage = async (file: File, bucket: 'avatars' | 'posts' | 'credenti
                 fileType: 'image/webp',
                 quality: 0.8,
                 initialQuality: 0.8
-            };
-        } else {
-            // Credentials: More aggressive but preserve readability
-            options = {
-                maxSizeMB: 0.3,           // Target < 300KB
-                maxWidthOrHeight: 1200,   // Credentials need to be readable
-                useWebWorker: true,
-                fileType: 'image/webp',
-                quality: 0.75,
-                initialQuality: 0.75
             };
         }
 
@@ -243,43 +227,23 @@ export const signInWithPassword = async (identifier: string, password: string): 
 };
 
 // Step 1: Send OTP (Code)
-export const sendOtp = async (email: string, isRegistration: boolean = false): Promise<ApiResponse<string>> => {
+export const sendOtp = async (email: string): Promise<ApiResponse<string>> => {
     const check = ensureClient();
     if (!check.success) return check;
 
     const cleanEmail = email.trim().toLowerCase();
 
     try {
-        // Business Logic Checks
-        if (isRegistration) {
-            const { data: existing } = await supabase!.from('profiles').select('status').eq('email', cleanEmail).maybeSingle();
-            if (existing) {
-                // Logic Requirement: If user exists and is EXPIRED, tell them to Renew (via Login)
-                if (existing.status === 'EXPIRED') {
-                    return { success: false, error: 'Account expired. Please log in to renew access.' };
-                }
-                // If DELETED, we might allow re-registration, but for now block to be safe or ask support
-                if (existing.status === 'DELETED') {
-                    return { success: false, error: 'Account previously deleted. Contact admin.' };
-                }
-                return { success: false, error: 'Email already registered. Please Log In.' };
-            }
-        } else {
-            const { data: existing } = await supabase!.from('profiles').select('status').eq('email', cleanEmail).maybeSingle();
-            if (!existing) {
-                return { success: false, error: 'Member not found. Please register first.' };
-            }
-            // Strict Login Check
-            if (existing.status === 'DELETED') {
-                return { success: false, error: 'Account has been deactivated.' };
-            }
+        const { data: existing } = await supabase!.from('profiles').select('id').eq('email', cleanEmail).maybeSingle();
+        if (!existing) {
+            return { success: false, error: 'Account not found.' };
         }
 
         // Send OTP
         const { error } = await supabase!.auth.signInWithOtp({
             email: cleanEmail,
             options: {
-                shouldCreateUser: isRegistration,
+                shouldCreateUser: false,
             },
         });
 
@@ -304,8 +268,6 @@ export const verifyOtp = async (email: string, token: string, type: EmailOtpType
         });
 
         if (!error && data.session) {
-            // Update Last Login
-            await supabase!.from('profiles').update({ last_login: new Date().toISOString() }).eq('id', data.session.user.id);
             return { success: true, data: data.session };
         }
 
@@ -325,8 +287,6 @@ export const verifyOtp = async (email: string, token: string, type: EmailOtpType
             });
 
             if (!retryError && retryData.session) {
-                // Update Last Login
-                await supabase!.from('profiles').update({ last_login: new Date().toISOString() }).eq('id', retryData.session.user.id);
                 return { success: true, data: retryData.session };
             }
         }
@@ -338,17 +298,10 @@ export const verifyOtp = async (email: string, token: string, type: EmailOtpType
     }
 };
 
-export const uploadImage = async (file: File, bucket: 'avatars' | 'posts' | 'credentials'): Promise<string | null> => {
+export const uploadImage = async (file: File, bucket: 'avatars' | 'posts'): Promise<string | null> => {
     if (!supabase) return null;
     try {
-        // COMPRESS BEFORE UPLOAD - all buckets get compression now
-        let fileToUpload = file;
-        if (bucket !== 'credentials') {
-            fileToUpload = await compressImage(file, bucket);
-        } else {
-            // Still compress credentials, just with different settings
-            fileToUpload = await compressImage(file, bucket);
-        }
+        const fileToUpload = await compressImage(file, bucket);
 
         const fileExt = fileToUpload.name.split('.').pop();
         const fileName = `${Date.now()}_${Math.random().toString(36).substring(7)}.${fileExt}`;
@@ -370,86 +323,10 @@ export const uploadImage = async (file: File, bucket: 'avatars' | 'posts' | 'cre
     }
 };
 
-export const createProfile = async (data: { nickname: string; jobTags: string[]; credentialFile: File, avatarFile?: File, country?: string, city?: string }): Promise<ApiResponse<null>> => {
-    const check = ensureClient();
-    if (!check.success) return check;
-
-    try {
-        const { data: { user: authUser } } = await supabase!.auth.getUser();
-
-        if (!authUser || !authUser.email) {
-            return { success: false, error: 'Session expired. Please verify again.' };
-        }
-
-        const credentialUrl = await uploadImage(data.credentialFile, 'credentials');
-        if (!credentialUrl) {
-            return { success: false, error: 'Failed to upload credential image.' };
-        }
-
-        let avatarUrl = null;
-        if (data.avatarFile) {
-            avatarUrl = await uploadImage(data.avatarFile, 'avatars');
-        }
-
-        const { error: dbError } = await supabase!.from('profiles').insert({
-            id: authUser.id,
-            email: authUser.email,
-            nickname: data.nickname,
-            job_tags: data.jobTags,
-            credential_url: credentialUrl,
-            avatar_url: avatarUrl,
-            role: 'ADMIN',
-            status: 'ACTIVE',
-            expiration_date: '2026-05-01T00:00:00Z',
-            is_renewal: false,
-            country: data.country,
-            city: data.city,
-            last_login: new Date().toISOString()
-        });
-
-        if (dbError) {
-            if (dbError.code === '23505') return { success: false, error: 'Profile already exists.' };
-            throw dbError;
-        }
-
-        return { success: true };
-    } catch (err: any) {
-        console.error(err);
-        return { success: false, error: err.message || 'Registration failed' };
-    }
-};
-
-export const renewMembership = async (credentialFile: File): Promise<ApiResponse<null>> => {
-    const check = ensureClient();
-    if (!check.success) return check;
-
-    try {
-        const { data: { user } } = await supabase!.auth.getUser();
-        if (!user) return { success: false, error: 'Not logged in' };
-
-        const credentialUrl = await uploadImage(credentialFile, 'avatars');
-        if (!credentialUrl) return { success: false, error: 'Image upload failed' };
-
-        const { error } = await supabase!.from('profiles').update({
-            credential_url: credentialUrl,
-            status: 'PENDING',
-            is_renewal: true
-        }).eq('id', user.id);
-
-        if (error) throw error;
-        return { success: true };
-    } catch (e: any) {
-        return { success: false, error: e.message || 'Renew failed' };
-    }
-}
-
 export const updateUserProfile = async (userId: string, updates: {
     nickname?: string;
     jobTags?: string[];
     avatarFile?: File;
-    credentialFile?: File;
-    status?: UserStatus;
-    isRenewal?: boolean;
     country?: string;
     city?: string;
 }) => {
@@ -458,20 +335,12 @@ export const updateUserProfile = async (userId: string, updates: {
     const payload: any = {};
     if (updates.nickname) payload.nickname = updates.nickname;
     if (updates.jobTags) payload.job_tags = updates.jobTags;
-    if (updates.status) payload.status = updates.status;
-    if (updates.isRenewal !== undefined) payload.is_renewal = updates.isRenewal;
     if (updates.country) payload.country = updates.country;
     if (updates.city) payload.city = updates.city;
 
     if (updates.avatarFile) {
         const url = await uploadImage(updates.avatarFile, 'avatars');
         if (url) payload.avatar_url = url;
-    }
-
-    if (updates.credentialFile) {
-        // Use 'credentials' bucket for credential images
-        const url = await uploadImage(updates.credentialFile, 'credentials');
-        if (url) payload.credential_url = url;
     }
 
     const { error } = await supabase.from('profiles').update(payload).eq('id', userId);
@@ -495,42 +364,22 @@ export const getCurrentUser = async (): Promise<User | null> => {
         .single();
 
     if (error) {
-        // Don't throw on not found, just return null (user needs to register)
+        // Don't throw on not found; the account has no profile yet.
         return null;
     }
 
     if (!profile) return null;
-
-    // STRICT SECURITY CHECK
-    if (profile.status === 'DELETED') {
-        await logout();
-        return null;
-    }
-
-    // Check Expiration
-    let status = profile.status as UserStatus;
-    const now = Date.now();
-    const expirationDate = profile.expiration_date ? new Date(profile.expiration_date).getTime() : null;
-
-    if (status === UserStatus.ACTIVE && expirationDate && now > expirationDate) {
-        status = UserStatus.EXPIRED;
-    }
 
     return {
         id: profile.id,
         email: profile.email,
         nickname: profile.nickname,
         role: profile.role as UserRole,
-        status: status,
         jobTags: profile.job_tags || [],
-        credentialUrl: profile.credential_url,
         avatarUrl: profile.avatar_url,
         createdAt: new Date(profile.created_at).getTime(),
-        expirationDate: expirationDate || undefined,
-        isRenewal: profile.is_renewal,
         country: profile.country,
         city: profile.city,
-        lastLogin: profile.last_login ? new Date(profile.last_login).getTime() : undefined
     };
 };
 
@@ -587,8 +436,6 @@ const transformPost = (p: any, likes: number = 0, commentsCount: number = 0, isL
     let imageUrls: string[] = [];
     if (p.image_urls && Array.isArray(p.image_urls)) {
         imageUrls = p.image_urls;
-    } else if (p.image_url) {
-        imageUrls = [p.image_url];
     }
 
   return {
@@ -735,7 +582,6 @@ export const createPost = async (content: string, files: File[] = [], location?:
         title: content.trim().split(/\r?\n/)[0].slice(0, 80) || null,
         content,
         image_urls: imageUrls,
-        image_url: imageUrls.length > 0 ? imageUrls[0] : null,
         location: location,
         entry_date: new Date().toISOString(),
         is_published: true
@@ -806,7 +652,7 @@ export const getComments = async (postId: string): Promise<Comment[]> => {
             content, 
             created_at,
             parent_id,
-            profiles:user_id ( id, nickname, avatar_url, role, status )
+            profiles:user_id ( id, nickname, avatar_url, role )
         `)
         .eq('post_id', postId)
         .order('created_at', { ascending: true }); // Order by time to ensure parents come before children usually
@@ -826,7 +672,6 @@ export const getComments = async (postId: string): Promise<Comment[]> => {
             nickname: c.profiles.nickname,
             avatarUrl: c.profiles.avatar_url,
             role: c.profiles.role,
-            status: c.profiles.status,
             email: '',
             jobTags: [],
             createdAt: 0
@@ -1027,90 +872,4 @@ export const subscribeToFeed = (onNewPost: () => void, currentUserId?: string): 
             onNewPost();
         })
         .subscribe();
-};
-
-export const subscribeToAdminChanges = (onData: (data: any) => void): RealtimeChannel | null => {
-    if (!supabase) return null;
-    return supabase
-        .channel('admin-profiles')
-        .on('postgres_changes', {
-            event: 'INSERT', // Catch new users
-            schema: 'public',
-            table: 'profiles'
-        }, payload => onData(payload.new))
-        .on('postgres_changes', {
-            event: 'UPDATE', // Catch status changes (e.g. renewal)
-            schema: 'public',
-            table: 'profiles'
-        }, payload => onData(payload.new))
-        .subscribe();
-};
-
-// --- Admin Service ---
-
-export const getAdminUsers = async (): Promise<User[]> => {
-    if (!supabase) return [];
-    const { data, error } = await supabase.from('profiles').select('*, is_renewal').order('created_at', { ascending: false });
-
-    if (error) {
-        dispatchFatalError(error, 'getAdminUsers');
-        return [];
-    }
-
-    return (data || []).map((u: any) => ({
-        id: u.id,
-        email: u.email,
-        nickname: u.nickname,
-        role: u.role,
-        status: u.status,
-        jobTags: u.job_tags || [],
-        credentialUrl: u.credential_url,
-        avatarUrl: u.avatar_url,
-        createdAt: new Date(u.created_at).getTime(),
-        expirationDate: u.expiration_date ? new Date(u.expiration_date).getTime() : undefined,
-        isRenewal: u.is_renewal,
-        country: u.country,
-        city: u.city,
-        lastLogin: u.last_login ? new Date(u.last_login).getTime() : undefined
-    }));
-};
-
-// New function for polling badge
-export const getPendingUserCount = async (): Promise<number> => {
-    if (!supabase) return 0;
-    const { count } = await supabase
-        .from('profiles')
-        .select('*', { count: 'exact', head: true })
-        .eq('status', 'PENDING');
-    return count || 0;
-};
-
-export const updateUser = async (userId: string, updates: { status?: UserStatus; role?: UserRole; expirationDate?: string | null }) => {
-    if (!supabase) return;
-
-    const payload: any = {};
-    if (updates.status) payload.status = updates.status;
-    if (updates.role) payload.role = updates.role;
-    if (updates.expirationDate !== undefined) {
-        payload.expiration_date = updates.expirationDate;
-    }
-
-    if (updates.status === UserStatus.ACTIVE) {
-        payload.is_renewal = false;
-    }
-
-    const { error } = await supabase.from('profiles').update(payload).eq('id', userId);
-    if (error) throw error;
-};
-
-export const updateUserStatus = async (userId: string, status: UserStatus, expirationDate?: Date) => {
-    const payload: any = { status };
-    if (status === UserStatus.ACTIVE && expirationDate) {
-        payload.expirationDate = expirationDate.toISOString();
-    }
-    await updateUser(userId, payload);
-};
-
-export const updateUserRole = async (userId: string, role: UserRole) => {
-    await updateUser(userId, { role });
 };

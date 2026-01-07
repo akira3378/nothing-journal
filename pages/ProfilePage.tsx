@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { User, UserStatus, Post } from '../types';
+import { User, Post } from '../types';
 import { updateUserProfile, getUserPosts } from '../services/mockBackend';
 import { useUserPosts } from '../hooks/useData';
 import { useApp } from '../utils/i18n';
@@ -65,27 +65,6 @@ const ProfilePage: React.FC<ProfileProps> = ({ user }) => {
     const [avatarFile, setAvatarFile] = useState<File | null>(null);
     const [avatarPreview, setAvatarPreview] = useState<string | null>(null);
 
-    const [credentialFile, setCredentialFile] = useState<File | null>(null);
-    const [credentialPreview, setCredentialPreview] = useState<string | null>(null);
-
-    const handleRenew = async () => {
-        if (!credentialFile) return;
-        setSaving(true);
-        try {
-            await updateUserProfile(user.id, {
-                credentialFile: credentialFile,
-                status: UserStatus.PENDING,
-                isRenewal: true
-            });
-            alert(t('renewal_submitted'));
-            window.location.reload();
-        } catch (e) {
-            alert(t('renewal_fail'));
-        } finally {
-            setSaving(false);
-        }
-    };
-
     const handleSave = async () => {
         setSaving(true);
         try {
@@ -113,19 +92,6 @@ const ProfilePage: React.FC<ProfileProps> = ({ user }) => {
 
     return (
         <div className="max-w-4xl mx-auto px-4 py-8 md:py-16">
-            {/* Pending Banner */}
-            {user.status === UserStatus.PENDING && (
-                <div className="mb-8 bg-yellow-50 dark:bg-yellow-900/20 border-l-4 border-yellow-400 p-4 flex items-start gap-4 animate-fadeIn">
-                    <div className="text-yellow-600 dark:text-yellow-500">
-                        <Icons.AlertTriangle className="w-6 h-6" />
-                    </div>
-                    <div>
-                        <h3 className="font-bold text-yellow-800 dark:text-yellow-400 uppercase tracking-widest text-xs mb-1">{t('pending_banner')}</h3>
-                        <p className="text-sm text-yellow-700 dark:text-yellow-500">{t('pending_banner_desc')}</p>
-                    </div>
-                </div>
-            )}
-
             {/* Main Profile Card */}
             <div className="bg-white dark:bg-zinc-900/50 backdrop-blur-md border border-zinc-200 dark:border-zinc-800 rounded-sm overflow-hidden shadow-lg dark:shadow-none transition-colors relative mb-12">
 
@@ -140,7 +106,7 @@ const ProfilePage: React.FC<ProfileProps> = ({ user }) => {
                             </button>
                         </div>
                     )}
-                    {!isEditing && user.status === UserStatus.ACTIVE && (
+                    {!isEditing && (
                         <button onClick={() => setIsEditing(true)} className="absolute top-4 right-4 bg-white/50 dark:bg-black/50 p-2 rounded-full hover:bg-white dark:hover:bg-black transition-all text-black dark:text-white border border-transparent hover:border-zinc-300 dark:hover:border-zinc-600">
                             <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z"></path></svg>
                         </button>
@@ -294,72 +260,9 @@ const ProfilePage: React.FC<ProfileProps> = ({ user }) => {
                             </div>
                         </div>
 
-                        {/* Status Badge */}
-                        <div className="pt-4 flex md:flex-col items-center md:items-end gap-2">
-                            <span className="text-xs uppercase tracking-widest text-zinc-400">{t('status')}</span>
-                            <span className={`px-3 py-1 rounded-full text-xs font-bold border ${user.status === 'ACTIVE' ? 'bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-400 border-green-200 dark:border-green-800' :
-                                'bg-zinc-100 dark:bg-zinc-800 text-zinc-600 dark:text-zinc-400 border-zinc-200 dark:border-zinc-700'
-                                } `}>
-                                {t(user.status)}
-                            </span>
-                        </div>
                     </div>
 
-                    {/* Credential Section */}
-                    <div className="mt-12 grid grid-cols-1 md:grid-cols-2 gap-8">
-                        <div className="p-6 bg-gray-50 dark:bg-black border border-zinc-200 dark:border-zinc-800 rounded-sm">
-                            <h3 className="text-sm font-bold text-zinc-500 uppercase tracking-widest mb-4 border-b border-zinc-200 dark:border-zinc-800 pb-2">{t('credentials')}</h3>
-                            {user.status === UserStatus.EXPIRED ? (
-                                <div className="space-y-4">
-                                    <div className="p-4 bg-orange-50 dark:bg-orange-900/20 border border-orange-200 dark:border-orange-800 rounded-sm">
-                                        <h4 className="text-sm font-bold text-orange-800 dark:text-orange-400 mb-2">{t('membership_expired')}</h4>
-                                        <p className="text-xs text-orange-700 dark:text-orange-300 mb-4">{t('renew_desc')}</p>
-
-                                        <div className="flex flex-col gap-3">
-                                            <input
-                                                type="file"
-                                                accept="image/*"
-                                                onChange={(e) => {
-                                                    if (e.target.files?.[0]) {
-                                                        setCredentialFile(e.target.files[0]);
-                                                        setCredentialPreview(URL.createObjectURL(e.target.files[0]));
-                                                    }
-                                                }}
-                                                className="text-xs text-zinc-500 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-xs file:font-semibold file:bg-black file:text-white hover:file:bg-zinc-800 dark:file:bg-white dark:file:text-black"
-                                            />
-
-                                            {credentialPreview && (
-                                                <div className="relative h-32 w-full bg-zinc-100 dark:bg-black rounded-sm overflow-hidden border border-zinc-200 dark:border-zinc-800">
-                                                    <img src={credentialPreview} className="w-full h-full object-contain" />
-                                                </div>
-                                            )}
-
-                                            <button
-                                                onClick={handleRenew}
-                                                disabled={!credentialFile || saving}
-                                                className="w-full py-2 bg-black dark:bg-white text-white dark:text-black text-xs font-bold uppercase tracking-wider rounded-sm hover:opacity-80 disabled:opacity-50 disabled:cursor-not-allowed transition-all"
-                                            >
-                                                {saving ? <Spinner size="sm" className="border-white dark:border-black" /> : t('submit_renewal')}
-                                            </button>
-                                        </div>
-                                    </div>
-                                </div>
-                            ) : user.credentialUrl ? (
-                                <div className="relative group overflow-hidden rounded-sm border border-zinc-300 dark:border-zinc-700 flex justify-center bg-zinc-100 dark:bg-zinc-900 p-2">
-                                    <ImagePreview
-                                        src={user.credentialUrl}
-                                        alt="Credential"
-                                        className="w-full max-w-[200px]"
-                                        thumbnailClassName="w-full h-auto object-contain transition-all duration-300"
-                                    />
-                                </div>
-                            ) : (
-                                <div className="h-32 flex items-center justify-center text-zinc-400 text-sm italic bg-zinc-100 dark:bg-zinc-900 rounded-sm">
-                                    {t('no_cred')}
-                                </div>
-                            )}
-                        </div>
-
+                    <div className="mt-12">
                         <div className="p-6 bg-gray-50 dark:bg-black border border-zinc-200 dark:border-zinc-800 rounded-sm flex flex-col justify-between">
                             <div>
                                 <h3 className="text-sm font-bold text-zinc-500 uppercase tracking-widest mb-4 border-b border-zinc-200 dark:border-zinc-800 pb-2">{t('account_id')}</h3>

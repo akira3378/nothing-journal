@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
-import { sendOtp, verifyOtp, signInWithPassword, getCurrentUser, logout, renewMembership } from '../services/mockBackend';
-import { User, UserStatus } from '../types';
+import { sendOtp, verifyOtp, signInWithPassword, getCurrentUser } from '../services/mockBackend';
+import { User } from '../types';
 import { useApp } from '../utils/i18n';
 import { Icons } from '../components/UI';
 
@@ -15,7 +15,7 @@ const LoginPage: React.FC<LoginProps> = ({ onLoginSuccess }) => {
     const [password, setPassword] = useState('');
     const [loginMode, setLoginMode] = useState<'password' | 'otp'>('password');
     const [otp, setOtp] = useState('');
-    const [step, setStep] = useState<'email' | 'otp' | 'renew'>('email');
+    const [step, setStep] = useState<'email' | 'otp'>('email');
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState('');
     const [countdown, setCountdown] = useState(0);
@@ -26,11 +26,6 @@ const LoginPage: React.FC<LoginProps> = ({ onLoginSuccess }) => {
             return () => clearTimeout(timer);
         }
     }, [countdown]);
-
-    // Renewal State
-    const [renewFile, setRenewFile] = useState<File | null>(null);
-    const [renewPreview, setRenewPreview] = useState<string | null>(null);
-    const [renewalSent, setRenewalSent] = useState(false);
 
     const navigate = useNavigate();
     const location = useLocation();
@@ -51,7 +46,7 @@ const LoginPage: React.FC<LoginProps> = ({ onLoginSuccess }) => {
         setError('');
 
         try {
-            const res = await sendOtp(email, false); // false = Login mode (check if exists)
+            const res = await sendOtp(email);
             if (res.success) {
                 setStep('otp');
                 setCountdown(60);
@@ -78,14 +73,8 @@ const LoginPage: React.FC<LoginProps> = ({ onLoginSuccess }) => {
             }
 
             const user = await getCurrentUser();
-            if (!user) {
-                setError(t('profile_not_found'));
-            } else if (user.status === UserStatus.DELETED || user.status === UserStatus.REJECTED) {
-                await logout();
-                setError(t('account_unavailable'));
-            } else {
-                onLoginSuccess(user);
-            }
+            if (!user) setError(t('profile_not_found'));
+            else onLoginSuccess(user);
         } catch {
             setError(t('invalid_credentials'));
         } finally {
@@ -104,53 +93,15 @@ const LoginPage: React.FC<LoginProps> = ({ onLoginSuccess }) => {
                 // Fetch full user profile to check Status
                 const user = await getCurrentUser();
 
-                if (user) {
-                    if (user.status === UserStatus.DELETED) {
-                        await logout();
-                        setError('Account deactivated. Please contact support.');
-                    } else if (user.status === UserStatus.REJECTED) {
-                        await logout();
-                        setError('Application was rejected.');
-                    } else if (user.status === UserStatus.EXPIRED) {
-                        // Do NOT logout yet, allow them to stay authenticated to upload renewal
-                        setStep('renew');
-                        setError(''); // Clear error if any
-                    } else {
-                        onLoginSuccess(user);
-                    }
-                } else {
-                    setError('Failed to retrieve user profile.');
-                }
+                if (user) onLoginSuccess(user);
+                else setError(t('profile_fetch_failed'));
             } else {
-                setError(res.error || 'Invalid code.');
+                setError(res.error || t('invalid_code'));
             }
         } catch (err) {
-            setError('Verification failed.');
+            setError(t('verification_failed'));
         } finally {
             setLoading(false);
-        }
-    };
-
-    const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-        if (e.target.files && e.target.files[0]) {
-            const f = e.target.files[0];
-            setRenewFile(f);
-            setRenewPreview(URL.createObjectURL(f));
-        }
-    };
-
-    const handleSubmitRenewal = async (e: React.FormEvent) => {
-        e.preventDefault();
-        if (!renewFile) return;
-
-        setLoading(true);
-        const res = await renewMembership(renewFile);
-        setLoading(false);
-
-        if (res.success) {
-            setRenewalSent(true);
-        } else {
-            setError(res.error || "Failed to submit renewal.");
         }
     };
 
@@ -159,10 +110,10 @@ const LoginPage: React.FC<LoginProps> = ({ onLoginSuccess }) => {
             <div className="max-w-md w-full space-y-8">
                 <div className="text-center">
                     <h2 className="text-4xl font-bold tracking-tighter text-black dark:text-white">
-                        {step === 'renew' ? 'RENEWAL' : t('access_title')}
+                        {t('access_title')}
                     </h2>
                     <p className="mt-2 text-sm text-zinc-500">
-                        {step === 'renew' ? 'Update your credential to continue.' : t('enter_void')}
+                        {t('enter_void')}
                     </p>
                 </div>
 
@@ -213,7 +164,7 @@ const LoginPage: React.FC<LoginProps> = ({ onLoginSuccess }) => {
                                     className="w-full flex justify-center items-center gap-2 py-3 px-4 border border-transparent text-sm font-bold rounded-sm text-white dark:text-black bg-black dark:bg-white hover:bg-zinc-800 dark:hover:bg-zinc-200 focus:outline-none disabled:opacity-50 disabled:cursor-not-allowed transition-all"
                                 >
                                     {loading && <span className="animate-spin h-4 w-4 border-2 border-white dark:border-black border-t-transparent rounded-full"></span>}
-                                    {loading ? t('processing') : 'SEND CODE'}
+                                    {loading ? t('processing') : t('send_code')}
                                 </button>
                                 <button type="button" onClick={() => setLoginMode('password')} className="w-full text-xs text-zinc-500 hover:text-black dark:hover:text-white underline mt-4">{t('use_password')}</button>
                             </form>
@@ -230,14 +181,14 @@ const LoginPage: React.FC<LoginProps> = ({ onLoginSuccess }) => {
 
                                 <div>
                                     <div className="flex justify-between items-center mb-1">
-                                        <label className="block text-xs font-bold text-zinc-500 uppercase tracking-wider">VERIFICATION CODE</label>
+                                        <label className="block text-xs font-bold text-zinc-500 uppercase tracking-wider">{t('verification_code')}</label>
                                         <button
                                             type="button"
                                             onClick={handleSendCode}
                                             disabled={countdown > 0 || loading}
                                             className="text-xs font-bold text-black dark:text-white hover:underline disabled:opacity-50 disabled:no-underline"
                                         >
-                                            {countdown > 0 ? `RESEND IN ${countdown}s` : 'RESEND CODE'}
+                                            {countdown > 0 ? `${t('resend_in')} ${countdown}s` : t('resend_code')}
                                         </button>
                                     </div>
                                     <input
@@ -257,78 +208,10 @@ const LoginPage: React.FC<LoginProps> = ({ onLoginSuccess }) => {
                                     className="w-full flex justify-center items-center gap-2 py-3 px-4 border border-transparent text-sm font-bold rounded-sm text-white dark:text-black bg-black dark:bg-white hover:bg-zinc-800 dark:hover:bg-zinc-200 focus:outline-none disabled:opacity-50 disabled:cursor-not-allowed transition-all"
                                 >
                                     {loading && <span className="animate-spin h-4 w-4 border-2 border-white dark:border-black border-t-transparent rounded-full"></span>}
-                                    {loading ? 'VERIFYING...' : 'ENTER'}
+                                    {loading ? t('verifying') : t('enter')}
                                 </button>
                             </form>
                         </fieldset>
-                    )}
-
-                    {step === 'renew' && !renewalSent && (
-                        <fieldset disabled={loading} className="group">
-                            <form onSubmit={handleSubmitRenewal} className="space-y-6">
-                                <div className="bg-yellow-50 dark:bg-yellow-900/10 border border-yellow-200 dark:border-yellow-900/30 p-3 rounded-sm">
-                                    <p className="text-xs text-yellow-700 dark:text-yellow-500 leading-relaxed">
-                                        <strong>MEMBERSHIP EXPIRED.</strong> To continue using the platform, please upload a new valid credential for administrator review.
-                                    </p>
-                                </div>
-
-                                <div>
-                                    <label className="block text-xs font-bold text-zinc-500 uppercase tracking-wider mb-1">{t('credential_upload')}</label>
-
-                                    {!renewPreview ? (
-                                        <div className="mt-1 flex justify-center px-6 pt-5 pb-6 border-2 border-zinc-300 dark:border-zinc-800 border-dashed rounded-sm hover:border-zinc-500 dark:hover:border-zinc-600 transition-colors cursor-pointer relative group">
-                                            <input type="file" accept="image/*" className="absolute inset-0 w-full h-full opacity-0 cursor-pointer disabled:cursor-not-allowed"
-                                                onChange={handleFileChange} />
-                                            <div className="space-y-1 text-center pointer-events-none">
-                                                <Icons.Camera className="mx-auto h-12 w-12 text-zinc-400 dark:text-zinc-600 group-hover:text-zinc-600 dark:group-hover:text-zinc-400" />
-                                                <div className="flex text-sm text-zinc-500 dark:text-zinc-400 justify-center mt-2">
-                                                    <span className="relative cursor-pointer font-medium text-black dark:text-white group-hover:underline">{t('upload_text')}</span>
-                                                </div>
-                                            </div>
-                                        </div>
-                                    ) : (
-                                        <div className="mt-1 relative border border-zinc-300 dark:border-zinc-700 rounded-sm overflow-hidden group bg-black">
-                                            <img src={renewPreview} alt="Preview" className="w-full h-auto max-h-64 object-contain" />
-                                            <div className="absolute top-0 right-0 p-2">
-                                                <button
-                                                    type="button"
-                                                    onClick={() => { setRenewFile(null); setRenewPreview(null); }}
-                                                    className="bg-black/80 text-white p-1.5 rounded-full hover:bg-red-900 transition-colors border border-zinc-700 disabled:opacity-50"
-                                                >
-                                                    <Icons.X className="w-4 h-4" />
-                                                </button>
-                                            </div>
-                                        </div>
-                                    )}
-                                </div>
-
-                                <button
-                                    type="submit"
-                                    disabled={loading || !renewFile}
-                                    className="w-full flex justify-center items-center gap-2 py-3 px-4 border border-transparent text-sm font-bold rounded-sm text-white dark:text-black bg-black dark:bg-white hover:bg-zinc-800 dark:hover:bg-zinc-200 focus:outline-none disabled:opacity-50 disabled:cursor-not-allowed transition-all"
-                                >
-                                    {loading && <span className="animate-spin h-4 w-4 border-2 border-white dark:border-black border-t-transparent rounded-full"></span>}
-                                    {loading ? 'SUBMITTING...' : 'SUBMIT RENEWAL'}
-                                </button>
-                            </form>
-                        </fieldset>
-                    )}
-
-                    {step === 'renew' && renewalSent && (
-                        <div className="text-center space-y-4 py-4">
-                            <div className="inline-block p-4 rounded-full bg-green-100 dark:bg-green-900/20 border border-green-300 dark:border-green-900">
-                                <svg className="w-12 h-12 text-green-600 dark:text-green-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M5 13l4 4L19 7"></path>
-                                </svg>
-                            </div>
-                            <h3 className="text-xl font-bold text-black dark:text-white">RENEWAL SUBMITTED</h3>
-                            <p className="text-zinc-600 dark:text-zinc-400 text-sm">
-                                An administrator will review your credentials shortly. You will be notified via email upon approval.
-                            </p>
-                            <button onClick={() => window.location.reload()} className="text-sm font-bold underline decoration-2 text-black dark:text-white mt-4">
-                                Return to Login
-                            </button>
-                        </div>
                     )}
 
                 </div>

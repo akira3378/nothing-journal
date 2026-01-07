@@ -1,12 +1,11 @@
 
 import React, { useState, useEffect, useRef } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
-import { User, UserRole, Notification } from '../types';
+import { User, Notification } from '../types';
 import { LANGUAGE_OPTIONS, useApp } from '../utils/i18n';
-import { getPendingUserCount, getNotifications, markNotificationRead, subscribeToNotifications, subscribeToAdminChanges } from '../services/mockBackend';
+import { getNotifications, markNotificationRead, subscribeToNotifications } from '../services/mockBackend';
 import { formatRelativeTime, formatNotificationMessage } from '../utils/formatters';
-import { Button, Badge, Popover, Drawer, Dropdown, Avatar, Menu, List, Empty } from 'antd';
-import type { MenuProps } from 'antd';
+import { Button, Badge, Popover, Drawer, Dropdown, Avatar, List, Empty } from 'antd';
 import { Icons, useToast } from './UI';
 
 interface NavbarProps {
@@ -20,7 +19,6 @@ export const Navbar: React.FC<NavbarProps> = ({ user, onLogout }) => {
     const { t, theme, toggleTheme, language, setLanguage, siteConfig } = useApp();
     const { addToast } = useToast();
     const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
-    const [pendingCount, setPendingCount] = useState(0);
 
     // Notification State
     const [notifications, setNotifications] = useState<Notification[]>([]);
@@ -32,15 +30,8 @@ export const Navbar: React.FC<NavbarProps> = ({ user, onLogout }) => {
     useEffect(() => {
         if (!user) return;
         let notifSub: any = null;
-        let adminSub: any = null;
 
         const fetchData = async () => {
-            // Admin check
-            if (user.role === UserRole.ADMIN) {
-                const count = await getPendingUserCount();
-                setPendingCount(count);
-            }
-
             // Notification check
             const notifs = await getNotifications();
             setNotifications(notifs);
@@ -65,15 +56,6 @@ export const Navbar: React.FC<NavbarProps> = ({ user, onLogout }) => {
                 fetchData(); // Refresh list and counts
             });
 
-            if (user.role === UserRole.ADMIN) {
-                adminSub = subscribeToAdminChanges((payload) => {
-                    if (payload && payload.status === 'PENDING') {
-                        // Use duration 0 for persistent notifications
-                        addToast(`New Application: ${payload.nickname}`, 'info', 0);
-                    }
-                    fetchData(); // Refresh admin badge on ANY change (e.g. approved, rejected)
-                });
-            }
         };
 
         setupRealtime();
@@ -81,7 +63,6 @@ export const Navbar: React.FC<NavbarProps> = ({ user, onLogout }) => {
         return () => {
             clearInterval(interval);
             if (notifSub) notifSub.unsubscribe();
-            if (adminSub) adminSub.unsubscribe();
         };
     }, [user]);
 
@@ -148,12 +129,6 @@ export const Navbar: React.FC<NavbarProps> = ({ user, onLogout }) => {
                         </div>
                     </div>
                     <button onClick={() => { navigate('/journal'); setIsMobileMenuOpen(false); }} className="text-left w-full text-zinc-600 dark:text-zinc-300 px-3 py-2 text-sm font-medium">{t('feed')}</button>
-                    {user.role === 'ADMIN' && (
-                        <button onClick={() => { navigate('/admin'); setIsMobileMenuOpen(false); }} className="text-left w-full text-red-500 px-3 py-2 text-sm font-medium flex items-center gap-1">
-                            {t('admin')}
-                            {pendingCount > 0 && <Badge variant="dot" />}
-                        </button>
-                    )}
                     <div className="border-t border-zinc-100 dark:border-zinc-800 my-2 pt-2">
                         <button onClick={() => { onLogout(); setIsMobileMenuOpen(false); }} className="text-left w-full text-zinc-600 dark:text-zinc-300 px-3 py-2 text-sm font-medium">{t('logout')}</button>
                     </div>
@@ -200,12 +175,6 @@ export const Navbar: React.FC<NavbarProps> = ({ user, onLogout }) => {
                             ) : (
                                 <>
                                     <button onClick={() => navigate('/journal')} className="text-zinc-600 dark:text-zinc-300 hover:text-black dark:hover:text-white px-3 py-2 text-sm font-medium">{t('feed')}</button>
-                                    {user.role === 'ADMIN' && (
-                                        <button onClick={() => navigate('/admin')} className="text-red-500 hover:text-red-600 dark:text-red-400 dark:hover:text-red-300 px-3 py-2 text-sm font-medium flex items-center gap-1">
-                                            {t('admin')}
-                                            {pendingCount > 0 && <Badge variant="dot" />}
-                                        </button>
-                                    )}
                                 </>
                             )}
                         </div>
