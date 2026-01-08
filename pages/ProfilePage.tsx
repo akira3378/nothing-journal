@@ -1,13 +1,13 @@
-import React, { useState, useEffect } from 'react';
+import React, { useEffect, useState } from 'react';
+import { Select } from 'antd';
+import { Country, City } from 'country-state-city';
 import { User, Post } from '../types';
-import { updateUserProfile, getUserPosts } from '../services/mockBackend';
+import { updateUserProfile } from '../services/mockBackend';
 import { useUserPosts } from '../hooks/useData';
 import { useApp } from '../utils/i18n';
 import { ImagePreview } from '../components/ImagePreview';
 import { Icons, Spinner } from '../components/UI';
-import { Select } from 'antd';
-import { FeedItem } from './FeedPage'; // Reusing FeedItem
-import { Country, City } from 'country-state-city';
+import { FeedItem } from './FeedPage';
 
 interface ProfileProps {
     user: User;
@@ -15,61 +15,50 @@ interface ProfileProps {
 
 const ProfilePage: React.FC<ProfileProps> = ({ user }) => {
     const { t } = useApp();
+    const { posts: myPosts, isLoading: loadingPosts, mutate } = useUserPosts(user.id);
     const [isEditing, setIsEditing] = useState(false);
+    const [saving, setSaving] = useState(false);
     const [nickname, setNickname] = useState(user.nickname);
     const [tags, setTags] = useState<string[]>(user.jobTags);
     const [tagInput, setTagInput] = useState('');
-    const [saving, setSaving] = useState(false);
     const [country, setCountry] = useState(user.country || '');
     const [city, setCity] = useState(user.city || '');
     const [countryCode, setCountryCode] = useState('');
-
-    useEffect(() => {
-        if (country) {
-            const c = Country.getAllCountries().find(c => c.name === country);
-            if (c) setCountryCode(c.isoCode);
-        }
-    }, [country]);
-
-    // Posts State
-    const { posts: myPosts, isLoading: loadingPosts, mutate } = useUserPosts(user.id);
-
-    // useEffect(() => {
-    //     const fetchMyPosts = async () => {
-    //         setLoadingPosts(true);
-    //         try {
-    //             const posts = await getUserPosts(user.id);
-    //             setMyPosts(posts);
-    //         } catch (e) {
-    //             console.error(t('fetch_posts_fail'));
-    //         } finally {
-    //             setLoadingPosts(false);
-    //         }
-    //     };
-    //     fetchMyPosts();
-    // }, [user.id]);
-
-    const handleAddTag = () => {
-        if (tags.length >= 3) return;
-        const val = tagInput.trim();
-        if (val && val.length <= 15 && !tags.includes(val)) {
-            setTags([...tags, val]);
-            setTagInput('');
-        }
-    };
-
-    const removeTag = (tag: string) => {
-        setTags(tags.filter(t => t !== tag));
-    };
-
     const [avatarFile, setAvatarFile] = useState<File | null>(null);
     const [avatarPreview, setAvatarPreview] = useState<string | null>(null);
+
+    useEffect(() => {
+        const selectedCountry = Country.getAllCountries().find(item => item.name === country);
+        setCountryCode(selectedCountry?.isoCode || '');
+    }, [country]);
+
+    useEffect(() => () => {
+        if (avatarPreview) URL.revokeObjectURL(avatarPreview);
+    }, [avatarPreview]);
+
+    const handleAddTag = () => {
+        const value = tagInput.trim();
+        if (tags.length >= 3 || !value || value.length > 15 || tags.includes(value)) return;
+        setTags(current => [...current, value]);
+        setTagInput('');
+    };
+
+    const handleRemoveTag = (tag: string) => {
+        setTags(current => current.filter(item => item !== tag));
+    };
+
+    const handleAvatarChange = (event: React.ChangeEvent<HTMLInputElement>) => {
+        const file = event.target.files?.[0];
+        if (!file) return;
+        setAvatarFile(file);
+        setAvatarPreview(URL.createObjectURL(file));
+    };
 
     const handleSave = async () => {
         setSaving(true);
         try {
             await updateUserProfile(user.id, {
-                nickname,
+                nickname: nickname.trim() || user.nickname,
                 jobTags: tags,
                 avatarFile: avatarFile || undefined,
                 country,
@@ -77,7 +66,7 @@ const ProfilePage: React.FC<ProfileProps> = ({ user }) => {
             });
             setIsEditing(false);
             window.location.reload();
-        } catch (e) {
+        } catch {
             alert(t('profile_update_fail'));
         } finally {
             setSaving(false);
@@ -87,232 +76,149 @@ const ProfilePage: React.FC<ProfileProps> = ({ user }) => {
     const handleCancel = () => {
         setNickname(user.nickname);
         setTags(user.jobTags);
+        setTagInput('');
+        setCountry(user.country || '');
+        setCity(user.city || '');
+        setAvatarFile(null);
+        setAvatarPreview(null);
         setIsEditing(false);
     };
 
+    const locationLabel = user.city && user.country
+        ? `${user.city}, ${user.country}`
+        : user.country || t('no_location');
+    const displayAvatar = avatarPreview || user.avatarUrl;
+
     return (
-        <div className="max-w-4xl mx-auto px-4 py-8 md:py-16">
-            {/* Main Profile Card */}
-            <div className="bg-white dark:bg-zinc-900/50 backdrop-blur-md border border-zinc-200 dark:border-zinc-800 rounded-sm overflow-hidden shadow-lg dark:shadow-none transition-colors relative mb-12">
+        <main className="min-h-screen bg-[#f7f7f5] dark:bg-nothing-black px-4 py-8 md:px-8 md:py-14 transition-colors">
+            <div className="max-w-6xl mx-auto">
+                <header className="mb-10 max-w-2xl">
+                    <p className="text-[10px] font-bold tracking-[0.35em] uppercase text-zinc-400 dark:text-zinc-600">{t('profile_identity')}</p>
+                    <h1 className="mt-3 text-4xl md:text-6xl font-black tracking-[-0.06em] text-black dark:text-white">{t('profile_title')}</h1>
+                    <p className="mt-4 text-sm md:text-base leading-7 text-zinc-500 dark:text-zinc-400">{t('profile_intro')}</p>
+                </header>
 
-                {/* Decorative Background */}
-                <div className="h-32 bg-gradient-to-r from-zinc-200 to-zinc-300 dark:from-zinc-800 dark:to-zinc-900 w-full relative">
-                    <div className="absolute inset-0 bg-[url('https://www.transparenttextures.com/patterns/cubes.png')] opacity-10"></div>
-                    {isEditing && (
-                        <div className="absolute top-4 right-4 flex gap-2 z-20">
-                            <button onClick={handleCancel} disabled={saving} className="bg-white/80 dark:bg-black/50 text-black dark:text-white px-3 py-1 text-xs font-bold rounded-sm backdrop-blur border border-transparent hover:border-black dark:hover:border-white transition-all disabled:opacity-50">{t('cancel')}</button>
-                            <button onClick={handleSave} disabled={saving} className="bg-black dark:bg-white text-white dark:text-black px-3 py-1 text-xs font-bold rounded-sm hover:opacity-80 transition-all shadow-md disabled:opacity-50">
-                                {saving ? t('saving') : t('save_changes')}
+                <section className="overflow-hidden rounded-[2rem] border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900/60 shadow-[0_20px_80px_rgba(0,0,0,0.06)] dark:shadow-none">
+                    <div className="relative h-36 md:h-48 bg-black dark:bg-white overflow-hidden">
+                        <div className="absolute inset-0 opacity-30 bg-[radial-gradient(circle_at_15%_20%,#ffffff_0,transparent_28%),radial-gradient(circle_at_80%_80%,#777_0,transparent_34%)]" />
+                        <div className="absolute -right-16 -top-28 h-80 w-80 rounded-full border border-white/20 dark:border-black/10" />
+                        <div className="absolute left-6 bottom-5 text-[10px] font-mono tracking-[0.3em] text-white/50 dark:text-black/40">NOTHING / JOURNAL</div>
+                        {!isEditing && (
+                            <button
+                                type="button"
+                                onClick={() => setIsEditing(true)}
+                                className="absolute right-5 top-5 inline-flex items-center gap-2 rounded-full border border-white/30 dark:border-black/20 bg-white/10 dark:bg-black/10 px-4 py-2 text-xs font-bold text-white dark:text-black backdrop-blur hover:bg-white/20 dark:hover:bg-black/20 transition-colors"
+                            >
+                                <span aria-hidden="true">✎</span>{t('edit_profile')}
                             </button>
-                        </div>
-                    )}
-                    {!isEditing && (
-                        <button onClick={() => setIsEditing(true)} className="absolute top-4 right-4 bg-white/50 dark:bg-black/50 p-2 rounded-full hover:bg-white dark:hover:bg-black transition-all text-black dark:text-white border border-transparent hover:border-zinc-300 dark:hover:border-zinc-600">
-                            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z"></path></svg>
-                        </button>
-                    )}
-                </div>
+                        )}
+                        {isEditing && (
+                            <div className="absolute right-5 top-5 flex gap-2">
+                                <button type="button" onClick={handleCancel} disabled={saving} className="rounded-full bg-white/10 px-4 py-2 text-xs font-bold text-white backdrop-blur hover:bg-white/20 disabled:opacity-50">{t('cancel')}</button>
+                                <button type="button" onClick={handleSave} disabled={saving} className="rounded-full bg-white px-4 py-2 text-xs font-bold text-black hover:bg-zinc-200 disabled:opacity-50">{saving ? t('saving') : t('save_changes')}</button>
+                            </div>
+                        )}
+                    </div>
 
-                <div className="px-8 pb-8">
-                    <div className="flex flex-col md:flex-row gap-6">
-                        {/* Avatar with Preview */}
-                        <div className="-mt-16 relative">
-                            <div className="h-32 w-32 rounded-full border-4 border-white dark:border-zinc-900 bg-zinc-100 dark:bg-black flex items-center justify-center text-4xl text-zinc-400 dark:text-zinc-500 overflow-hidden shadow-md">
-                                {avatarPreview ? (
-                                    <img src={avatarPreview} className="w-full h-full object-cover" />
-                                ) : user.avatarUrl ? (
-                                    <ImagePreview
-                                        src={user.avatarUrl}
-                                        alt="Profile"
-                                        className="w-full h-full"
-                                        thumbnailClassName="w-full h-full object-cover"
-                                    />
+                    <div className="px-5 pb-7 md:px-10 md:pb-10">
+                        <div className="-mt-14 flex flex-col gap-6 md:-mt-20 md:flex-row md:items-end">
+                            <div className="relative h-28 w-28 shrink-0 rounded-[1.75rem] border-4 border-white dark:border-zinc-900 bg-zinc-100 dark:bg-black shadow-xl overflow-hidden">
+                                {displayAvatar ? (
+                                    avatarPreview ? <img src={displayAvatar} alt={t('profile')} className="h-full w-full object-cover" /> : <ImagePreview src={displayAvatar} alt={t('profile')} className="h-full w-full" thumbnailClassName="h-full w-full object-cover" />
                                 ) : (
-                                    <span>{nickname.charAt(0).toUpperCase()}</span>
+                                    <span className="flex h-full w-full items-center justify-center text-4xl font-black text-zinc-300 dark:text-zinc-700">{nickname.charAt(0).toUpperCase()}</span>
                                 )}
+                                {isEditing && (
+                                    <label className="absolute inset-0 flex cursor-pointer flex-col items-center justify-center gap-1 bg-black/60 text-[10px] font-bold text-white opacity-0 hover:opacity-100 transition-opacity">
+                                        <Icons.Camera className="h-5 w-5" />
+                                        {t('edit_avatar')}
+                                        <input type="file" accept="image/*" onChange={handleAvatarChange} className="sr-only" />
+                                    </label>
+                                )}
+                            </div>
+
+                            <div className="min-w-0 flex-1 pb-1">
+                                {isEditing ? (
+                                    <input value={nickname} onChange={event => setNickname(event.target.value)} aria-label={t('nickname')} className="w-full max-w-xl border-b-2 border-zinc-300 bg-transparent py-1 text-3xl font-black tracking-[-0.04em] text-black outline-none focus:border-black dark:border-zinc-700 dark:text-white dark:focus:border-white" />
+                                ) : (
+                                    <h2 className="truncate text-3xl font-black tracking-[-0.04em] text-black dark:text-white">{user.nickname}</h2>
+                                )}
+                                <div className="mt-2 flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-zinc-500 dark:text-zinc-400">
+                                    <span className="font-mono">{user.email}</span>
+                                    <span className="inline-flex items-center gap-1"><Icons.MapPin className="h-3.5 w-3.5" />{locationLabel}</span>
+                                </div>
                             </div>
                         </div>
 
-                        {/* Info */}
-                        <div className="pt-4 flex-1">
-                            {isEditing ? (
-                                <fieldset disabled={saving} className="group">
-                                    <div className="mb-4 flex items-center gap-4">
-                                        <div className="relative group/avatar cursor-pointer h-16 w-16">
-                                            <div className="h-full w-full rounded-full overflow-hidden border border-zinc-300 dark:border-zinc-700">
-                                                {avatarPreview ? (
-                                                    <img src={avatarPreview} className="w-full h-full object-cover" />
-                                                ) : user.avatarUrl ? (
-                                                    <img src={user.avatarUrl} className="w-full h-full object-cover" />
-                                                ) : (
-                                                    <div className="w-full h-full bg-zinc-100 dark:bg-zinc-800 flex items-center justify-center">
-                                                        <Icons.Camera className="w-4 h-4 text-zinc-400" />
-                                                    </div>
-                                                )}
-                                            </div>
-
-                                            {/* Overlay - pointer-events-none to let clicks pass through to input if input is below, 
-                                                OR input on top with opacity 0. 
-                                                Best practice: Input on top, z-index high. */}
-                                            <div className="absolute inset-0 bg-black/50 flex items-center justify-center opacity-0 group-hover/avatar:opacity-100 transition-opacity rounded-full pointer-events-none">
-                                                <Icons.Camera className="w-4 h-4 text-white" />
-                                            </div>
-
-                                            <input
-                                                type="file"
-                                                accept="image/*"
-                                                onChange={(e) => {
-                                                    if (e.target.files?.[0]) {
-                                                        const f = e.target.files[0];
-                                                        setAvatarFile(f);
-                                                        setAvatarPreview(URL.createObjectURL(f));
-                                                    }
-                                                }}
-                                                className="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-10"
-                                            />
-                                        </div>
-                                        <div className="text-xs text-zinc-500">Click to change avatar</div>
-                                    </div>
-
-                                    <div className="mb-2 max-w-sm">
-                                        <label className="text-xs text-zinc-400 uppercase font-bold tracking-wider mb-1 block">{t('nickname')}</label>
-                                        <input
-                                            value={nickname}
-                                            onChange={(e) => setNickname(e.target.value)}
-                                            className="text-2xl font-bold text-black dark:text-white bg-transparent border-b border-zinc-300 dark:border-zinc-700 w-full focus:border-black dark:focus:border-white outline-none py-1 disabled:opacity-50"
-                                        />
-                                    </div>
-
-                                    <div className="space-y-4">
-                                        <div>
-                                            <label className="block text-xs font-bold text-zinc-500 uppercase mb-1">{t('select_country')}</label>
-                                            <Select
-                                                showSearch
-                                                style={{ width: '100%' }}
-                                                placeholder={t('select_country')}
-                                                optionFilterProp="children"
-                                                value={country}
-                                                onChange={(value) => {
-                                                    setCountry(value);
-                                                    const c = Country.getAllCountries().find(c => c.name === value);
-                                                    setCountryCode(c ? c.isoCode : '');
-                                                    setCity(''); // Clear city when country changes
-                                                }}
-                                                filterOption={(input, option) =>
-                                                    (option?.label ?? '').toLowerCase().includes(input.toLowerCase())
-                                                }
-                                                options={Country.getAllCountries().map(c => ({ value: c.name, label: c.name }))}
-                                            />
-                                        </div>
-                                        <div>
-                                            <label className="block text-xs font-bold text-zinc-500 uppercase mb-1">{t('select_city')}</label>
-                                            <Select
-                                                showSearch
-                                                style={{ width: '100%' }}
-                                                placeholder={t('select_city')}
-                                                optionFilterProp="children"
-                                                value={city}
-                                                onChange={setCity}
-                                                disabled={!countryCode}
-                                                filterOption={(input, option) =>
-                                                    (option?.label ?? '').toLowerCase().includes(input.toLowerCase())
-                                                }
-                                                options={countryCode ? City.getCitiesOfCountry(countryCode)?.map(c => ({ value: c.name, label: c.name })) : []}
-                                            />
-                                        </div>
-                                    </div>
-                                </fieldset>
-                            ) : (
-                                <h1 className="text-3xl font-bold text-black dark:text-white tracking-tight">{user.nickname}</h1>
-                            )}
-
-                            <div className="flex items-center gap-2 text-zinc-500 dark:text-zinc-400 text-sm font-mono mt-1">
-                                <span>{user.email}</span>
-                                {user.country && (
-                                    <>
-                                        <span className="w-1 h-1 bg-zinc-400 rounded-full"></span>
-                                        <span>{user.city ? `${user.city}, ${user.country} ` : user.country}</span>
-                                    </>
-                                )}
-                                <span className="w-1 h-1 bg-zinc-400 rounded-full"></span>
-                                <span>{new Date(user.createdAt).getFullYear()}</span>
-                            </div>
-
-                            <div className="mt-4 flex flex-wrap gap-2">
-                                {tags.map(tag => (
-                                    <span key={tag} className="inline-flex items-center px-3 py-1 rounded-sm text-xs font-bold bg-zinc-100 dark:bg-zinc-800 text-black dark:text-zinc-200 border border-zinc-200 dark:border-zinc-700">
-                                        {tag}
-                                        {isEditing && <button onClick={() => removeTag(tag)} disabled={saving} className="ml-2 text-zinc-400 hover:text-red-500 disabled:opacity-50">×</button>}
-                                    </span>
-                                ))}
-                                {isEditing && tags.length < 3 && (
-                                    <fieldset disabled={saving} className="flex items-center gap-2 group">
-                                        <input
-                                            value={tagInput}
-                                            onChange={e => setTagInput(e.target.value)}
-                                            onKeyDown={e => e.key === 'Enter' && handleAddTag()}
-                                            placeholder={t('add_tag_placeholder')}
-                                            className="bg-transparent border-b border-zinc-300 dark:border-zinc-700 text-sm px-2 py-1 text-black dark:text-white w-32 outline-none focus:border-black disabled:opacity-50"
-                                        />
-                                        <button onClick={handleAddTag} className="text-xs bg-black dark:bg-white text-white dark:text-black px-2 py-1 rounded-sm disabled:opacity-50">{t('add')}</button>
-                                    </fieldset>
-                                )}
-                            </div>
-                        </div>
-
-                    </div>
-
-                    <div className="mt-12">
-                        <div className="p-6 bg-gray-50 dark:bg-black border border-zinc-200 dark:border-zinc-800 rounded-sm flex flex-col justify-between">
+                        <div className="mt-8 grid gap-8 border-t border-zinc-100 pt-7 dark:border-zinc-800 md:grid-cols-[1fr_auto]">
                             <div>
-                                <h3 className="text-sm font-bold text-zinc-500 uppercase tracking-widest mb-4 border-b border-zinc-200 dark:border-zinc-800 pb-2">{t('account_id')}</h3>
-                                <p className="font-mono text-xs text-zinc-600 dark:text-zinc-400 break-all select-all">{user.id}</p>
+                                <p className="text-[10px] font-bold uppercase tracking-[0.25em] text-zinc-400">{t('profile_identity')}</p>
+                                <div className="mt-3 flex flex-wrap gap-2">
+                                    {tags.map(tag => (
+                                        <span key={tag} className="inline-flex items-center rounded-full bg-zinc-100 px-3 py-1.5 text-xs font-bold text-zinc-700 dark:bg-zinc-800 dark:text-zinc-200">
+                                            {tag}
+                                            {isEditing && <button type="button" onClick={() => handleRemoveTag(tag)} disabled={saving} aria-label={`${t('delete')} ${tag}`} className="ml-2 text-zinc-400 hover:text-red-500">×</button>}
+                                        </span>
+                                    ))}
+                                    {isEditing && tags.length < 3 && (
+                                        <div className="flex items-center gap-2">
+                                            <input value={tagInput} onChange={event => setTagInput(event.target.value)} onKeyDown={event => { if (event.key === 'Enter') { event.preventDefault(); handleAddTag(); } }} placeholder={t('add_tag_placeholder')} aria-label={t('identity_tags')} className="w-36 border-b border-zinc-300 bg-transparent px-1 py-1 text-xs outline-none focus:border-black dark:border-zinc-700 dark:text-white dark:focus:border-white" />
+                                            <button type="button" onClick={handleAddTag} disabled={saving} className="rounded-full bg-black px-3 py-1.5 text-xs font-bold text-white dark:bg-white dark:text-black">{t('add')}</button>
+                                        </div>
+                                    )}
+                                    {!isEditing && tags.length === 0 && <span className="text-sm italic text-zinc-400">—</span>}
+                                </div>
                             </div>
-                            <div className="mt-8">
-                                <div className="w-full h-1 bg-gradient-to-r from-transparent via-zinc-300 dark:via-zinc-700 to-transparent opacity-50"></div>
-                                <p className="text-[10px] text-center text-zinc-400 mt-2 tracking-[0.2em]">{t('auth_member')}</p>
+                            <div className="grid grid-cols-3 gap-6 border-t border-zinc-100 pt-5 dark:border-zinc-800 md:min-w-[330px] md:border-l md:border-t-0 md:pl-8 md:pt-0">
+                                <div><p className="text-2xl font-black text-black dark:text-white">{myPosts.length}</p><p className="mt-1 text-[10px] uppercase tracking-wider text-zinc-400">{t('profile_notes')}</p></div>
+                                <div><p className="text-2xl font-black text-black dark:text-white">{new Date(user.createdAt).getFullYear()}</p><p className="mt-1 text-[10px] uppercase tracking-wider text-zinc-400">{t('profile_joined')}</p></div>
+                                <div><p className="text-2xl font-black text-black dark:text-white">{user.jobTags.length}</p><p className="mt-1 text-[10px] uppercase tracking-wider text-zinc-400">{t('identity_tags')}</p></div>
                             </div>
                         </div>
-                    </div>
-                </div>
-            </div>
 
-            {/* My Posts Section */}
-            <div className="border-t border-zinc-200 dark:border-zinc-800 pt-12">
-                <div className="flex items-center justify-between mb-8">
-                    <h3 className="text-xl font-bold text-black dark:text-white tracking-tight">{t('my_transmissions')}</h3>
-                    <div className="text-xs text-zinc-500 uppercase tracking-widest">{myPosts.length} {t('records')}</div>
-                </div>
-
-                {loadingPosts ? (
-                    <div className="flex justify-center py-12">
-                        <Spinner />
-                    </div>
-                ) : myPosts.length === 0 ? (
-                    <div className="text-center py-16 border border-dashed border-zinc-200 dark:border-zinc-800 rounded-sm">
-                        <p className="text-zinc-400 text-sm italic">{t('no_broadcasts')}</p>
-                    </div>
-                ) : (
-                    <div className="space-y-8">
-                        {myPosts.map(post => (
-                            <div key={post.id} className="relative">
-                                {/* Simplified Feed Item Wrapper for Profile */}
-                                <FeedItem
-                                    post={post}
-                                    currentUser={user}
-                                    onDelete={async (id) => {
-                                        await mutate((currentData: any) => {
-                                            if (!currentData) return [];
-                                            return currentData.filter((p: Post) => p.id !== id);
-                                        }, false);
-                                    }}
-                                />
+                        {isEditing && (
+                            <div className="mt-8 rounded-2xl bg-zinc-50 p-5 dark:bg-black/30">
+                                <p className="mb-5 text-xs leading-5 text-zinc-500 dark:text-zinc-400">{t('profile_edit_hint')}</p>
+                                <div className="grid gap-5 md:grid-cols-2">
+                                    <div>
+                                        <label className="mb-2 block text-[10px] font-bold uppercase tracking-[0.2em] text-zinc-400">{t('select_country')}</label>
+                                        <Select showSearch value={country || undefined} onChange={value => { setCountry(value); setCity(''); }} placeholder={t('select_country')} optionFilterProp="label" className="w-full" options={Country.getAllCountries().map(item => ({ value: item.name, label: item.name }))} />
+                                    </div>
+                                    <div>
+                                        <label className="mb-2 block text-[10px] font-bold uppercase tracking-[0.2em] text-zinc-400">{t('select_city')}</label>
+                                        <Select showSearch value={city || undefined} onChange={setCity} disabled={!countryCode} placeholder={t('select_city')} optionFilterProp="label" className="w-full" options={countryCode ? (City.getCitiesOfCountry(countryCode) || []).map(item => ({ value: item.name, label: item.name })) : []} />
+                                    </div>
+                                </div>
                             </div>
-                        ))}
+                        )}
                     </div>
-                )}
+                </section>
+
+                <section className="mt-14">
+                    <div className="mb-6 flex items-end justify-between gap-4">
+                        <div>
+                            <p className="text-[10px] font-bold uppercase tracking-[0.3em] text-zinc-400">{t('profile_notes')}</p>
+                            <h2 className="mt-2 text-2xl font-black tracking-[-0.04em] text-black dark:text-white">{t('my_transmissions')}</h2>
+                        </div>
+                        <span className="font-mono text-xs text-zinc-400">{myPosts.length} {t('records')}</span>
+                    </div>
+
+                    {loadingPosts ? (
+                        <div className="flex justify-center rounded-2xl border border-zinc-200 py-16 dark:border-zinc-800"><Spinner /></div>
+                    ) : myPosts.length === 0 ? (
+                        <div className="rounded-2xl border border-dashed border-zinc-300 px-6 py-20 text-center dark:border-zinc-700"><p className="text-sm italic text-zinc-400">{t('no_broadcasts')}</p></div>
+                    ) : (
+                        <div className="space-y-8">
+                            {myPosts.map(post => (
+                                <FeedItem key={post.id} post={post} currentUser={user} onDelete={async id => {
+                                    await mutate((currentData: any) => currentData ? currentData.filter((item: Post) => item.id !== id) : [], false);
+                                }} />
+                            ))}
+                        </div>
+                    )}
+                </section>
             </div>
-        </div>
+        </main>
     );
 };
 
