@@ -438,10 +438,16 @@ const transformPost = (p: any, likes: number = 0, commentsCount: number = 0, isL
         imageUrls = p.image_urls;
     }
 
+    // Older posts used the first line of the body as an automatic title.
+    // Do not render that title twice when it is already the opening line.
+    const rawTitle = typeof p.title === 'string' ? p.title.trim() : '';
+    const firstLine = typeof p.content === 'string' ? p.content.trim().split(/\r?\n/, 1)[0].trim() : '';
+    const title = rawTitle && rawTitle !== firstLine ? rawTitle : undefined;
+
   return {
         id: p.id,
         userId: p.user_id,
-        title: p.title || undefined,
+        title,
         content: p.content,
         imageUrls: imageUrls,
         location: p.location,
