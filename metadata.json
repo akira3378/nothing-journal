@@ -1,5 +1,5 @@
 {
-  "name": "NOTHING - Enterprise Portal",
-  "description": "A minimalist enterprise community platform adhering to the 'Nothing' philosophy. Features OTP-based auth, member feed, and admin management.",
+  "name": "Nothing Journal",
+  "description": "A minimalist personal travel journal for recording places, roads, and moments along the way.",
   "requestFramePermissions": []
 }
