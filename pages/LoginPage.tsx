@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
-import { sendOtp, verifyOtp, signInWithPassword, getCurrentUser } from '../services/mockBackend';
+import { sendOtp, verifyOtp, signInWithPassword, getCurrentUser } from '../services/supabaseBackend';
 import { User } from '../types';
 import { useApp } from '../utils/i18n';
 import { Icons } from '../components/UI';
@@ -129,7 +129,7 @@ const LoginPage: React.FC<LoginProps> = ({ onLoginSuccess }) => {
                             <form onSubmit={handlePasswordLogin} className="space-y-6">
                                 <div>
                                     <label htmlFor="username" className="block text-xs font-bold text-zinc-500 uppercase tracking-wider mb-1">{t('username')}</label>
-                                    <input id="username" type="text" required value={username} onChange={e => setUsername(e.target.value)} placeholder="admin" className="mt-1 block w-full bg-white dark:bg-black border border-zinc-300 dark:border-zinc-700 rounded-sm py-3 px-4 text-black dark:text-white focus:outline-none focus:border-black dark:focus:border-white" />
+                                    <input id="username" type="text" required value={username} onChange={e => setUsername(e.target.value)} placeholder={t('username_placeholder')} className="mt-1 block w-full bg-white dark:bg-black border border-zinc-300 dark:border-zinc-700 rounded-sm py-3 px-4 text-black dark:text-white focus:outline-none focus:border-black dark:focus:border-white" />
                                 </div>
                                 <div>
                                     <label htmlFor="password" className="block text-xs font-bold text-zinc-500 uppercase tracking-wider mb-1">{t('password')}</label>

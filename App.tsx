@@ -3,7 +3,7 @@ import React, { useState, useEffect } from 'react';
 import { HashRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { Navbar } from './components/Navbar';
 import { User } from './types';
-import { getCurrentUser, logout, isBackendConfigured, configureBackend, getSession, SYSTEM_ERROR_EVENT } from './services/mockBackend';
+import { getCurrentUser, logout, isBackendConfigured, configureBackend, getSession, SYSTEM_ERROR_EVENT } from './services/supabaseBackend';
 import { AppProvider, useApp } from './utils/i18n';
 import { Icons, ToastProvider } from './components/UI';
 import { ConfigProvider, theme as antdTheme } from 'antd';
@@ -33,6 +33,8 @@ const ProtectedRoute: React.FC<ProtectedRouteProps> = ({ user, children }) => {
 };
 
 const SystemErrorScreen: React.FC<{ error: any, onReset: () => void }> = ({ error, onReset }) => {
+  const { t } = useApp();
+
   return (
     <div className="fixed inset-0 z-[9999] bg-black flex flex-col items-center justify-center text-red-500 p-4 font-mono">
       <div className="max-w-2xl w-full border border-red-900 bg-red-950/10 p-8 rounded-sm shadow-2xl relative overflow-hidden">
@@ -41,8 +43,8 @@ const SystemErrorScreen: React.FC<{ error: any, onReset: () => void }> = ({ erro
         <div className="flex items-center gap-4 mb-6">
           <Icons.AlertTriangle className="w-12 h-12" />
           <div>
-            <h1 className="text-2xl font-bold tracking-widest uppercase">{error.title || 'SYSTEM FAILURE'}</h1>
-            <p className="text-xs text-red-400">ERROR_CODE: {error.code || 'UNKNOWN'}</p>
+            <h1 className="text-2xl font-bold tracking-widest uppercase">{error.title || t('system_failure')}</h1>
+            <p className="text-xs text-red-400">{t('error_code')}: {error.code || t('unknown_error')}</p>
           </div>
         </div>
 
@@ -52,7 +54,7 @@ const SystemErrorScreen: React.FC<{ error: any, onReset: () => void }> = ({ erro
           </div>
           {error.hint && (
             <div className="flex items-start gap-2 text-sm text-yellow-500 bg-yellow-900/20 p-3 rounded border border-yellow-900/30">
-              <span className="font-bold">HINT:</span>
+              <span className="font-bold">{t('hint')}:</span>
               <span>{error.hint}</span>
             </div>
           )}
@@ -63,7 +65,7 @@ const SystemErrorScreen: React.FC<{ error: any, onReset: () => void }> = ({ erro
             onClick={onReset}
             className="px-6 py-3 bg-red-600 text-black font-bold uppercase tracking-wider hover:bg-red-500 transition-colors"
           >
-            REBOOT SYSTEM
+            {t('reboot_system')}
           </button>
         </div>
       </div>
@@ -184,19 +186,19 @@ const AppContent: React.FC = () => {
     return (
       <div className="min-h-screen bg-white dark:bg-black text-black dark:text-white flex flex-col items-center justify-center px-4 transition-colors duration-300">
         <div className="max-w-md w-full bg-gray-100 dark:bg-zinc-900 border border-zinc-300 dark:border-zinc-800 p-8 rounded-sm">
-          <h1 className="text-2xl font-bold mb-2">SYSTEM INITIALIZATION</h1>
-          <p className="text-zinc-500 text-sm mb-6">Connect to your Supabase Backend to deploy the NOTHING portal.</p>
+          <h1 className="text-2xl font-bold mb-2">{t('system_initialization')}</h1>
+          <p className="text-zinc-500 text-sm mb-6">{t('system_initialization_desc')}</p>
 
           <form onSubmit={handleConfigure} className="space-y-4">
             <div>
-              <label className="block text-xs font-bold text-zinc-500 uppercase mb-1">Supabase URL</label>
+              <label className="block text-xs font-bold text-zinc-500 uppercase mb-1">{t('supabase_url_label')}</label>
               <input value={sbUrl} onChange={e => setSbUrl(e.target.value)} className="w-full bg-white dark:bg-black border border-zinc-300 dark:border-zinc-700 p-2 text-black dark:text-white text-sm rounded-sm focus:border-black dark:focus:border-white outline-none" placeholder={t('supabase_url_placeholder')} required />
             </div>
             <div>
-              <label className="block text-xs font-bold text-zinc-500 uppercase mb-1">Supabase Key</label>
+              <label className="block text-xs font-bold text-zinc-500 uppercase mb-1">{t('supabase_key_label')}</label>
               <input value={sbKey} onChange={e => setSbKey(e.target.value)} className="w-full bg-white dark:bg-black border border-zinc-300 dark:border-zinc-700 p-2 text-black dark:text-white text-sm rounded-sm focus:border-black dark:focus:border-white outline-none" placeholder={t('supabase_key_placeholder')} required />
             </div>
-            <button type="submit" className="w-full bg-black dark:bg-white text-white dark:text-black font-bold py-2 rounded-sm hover:bg-zinc-800 dark:hover:bg-gray-200 text-sm mt-4 transition-colors">INITIALIZE SYSTEM</button>
+            <button type="submit" className="w-full bg-black dark:bg-white text-white dark:text-black font-bold py-2 rounded-sm hover:bg-zinc-800 dark:hover:bg-gray-200 text-sm mt-4 transition-colors">{t('initialize_system')}</button>
           </form>
         </div>
       </div>
@@ -206,10 +208,10 @@ const AppContent: React.FC = () => {
   if (loading) {
     return (
       <div className="h-screen w-full bg-white dark:bg-black flex flex-col items-center justify-center gap-4 transition-colors duration-300">
-        <div className="text-zinc-400 dark:text-zinc-500 animate-pulse tracking-widest">CONNECTING TO NOTHING...</div>
+        <div className="text-zinc-400 dark:text-zinc-500 animate-pulse tracking-widest">{t('connecting')}</div>
         {configError && (
           <button onClick={handleResetConfig} className="text-xs text-red-500 hover:text-red-400 underline">
-            Connection taking too long. Reset Configuration?
+            {t('connection_timeout')}
           </button>
         )}
       </div>

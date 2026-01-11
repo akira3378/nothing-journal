@@ -2,7 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { Select } from 'antd';
 import { Country, City } from 'country-state-city';
 import { User, Post } from '../types';
-import { updateUserProfile } from '../services/mockBackend';
+import { updateUserProfile } from '../services/supabaseBackend';
 import { useUserPosts } from '../hooks/useData';
 import { useApp } from '../utils/i18n';
 import { ImagePreview } from '../components/ImagePreview';

@@ -1,6 +1,6 @@
 import useSWR, { useSWRConfig } from 'swr';
 import useSWRInfinite from 'swr/infinite';
-import { getFeed, getUserPosts, getCurrentUser, getPostById } from '../services/mockBackend';
+import { getFeed, getUserPosts, getCurrentUser, getPostById } from '../services/supabaseBackend';
 import { Post, User } from '../types';
 
 // Keys
@@ -13,7 +13,7 @@ const KEYS = {
 
 // Fetcher wrapper
 // SWR expects a fetcher that returns data or throws
-// Our mockBackend returns { data, count } or arrays.
+// The Supabase data layer returns { data, count } or arrays.
 // We need to adapt it.
 
 const feedFetcher = async ([key, page]: [string, number]) => {

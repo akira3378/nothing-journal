@@ -2,7 +2,7 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { User, Post, Comment } from '../types';
-import { getFeed, createPost, deletePost, toggleLike, getComments, addComment, deleteComment, subscribeToFeed } from '../services/mockBackend';
+import { getFeed, createPost, deletePost, toggleLike, getComments, addComment, deleteComment, subscribeToFeed } from '../services/supabaseBackend';
 import { useApp } from '../utils/i18n';
 import { useFeed } from '../hooks/useData';
 import { ImagePreview } from '../components/ImagePreview';

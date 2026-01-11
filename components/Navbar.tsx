@@ -3,7 +3,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { User, Notification } from '../types';
 import { LANGUAGE_OPTIONS, useApp } from '../utils/i18n';
-import { getNotifications, markNotificationRead, subscribeToNotifications } from '../services/mockBackend';
+import { getNotifications, markNotificationRead, subscribeToNotifications } from '../services/supabaseBackend';
 import { formatRelativeTime, formatNotificationMessage } from '../utils/formatters';
 import { Button, Badge, Popover, Drawer, Dropdown, Avatar, List, Empty } from 'antd';
 import { Icons, useToast } from './UI';
@@ -219,8 +219,8 @@ export const Navbar: React.FC<NavbarProps> = ({ user, onLogout }) => {
                                 }
                                 title={
                                     <div className="flex justify-between items-center">
-                                        <span>Notifications</span>
-                                        {unreadNotifs > 0 && <span className="text-xs text-red-500 font-bold">{unreadNotifs} NEW</span>}
+                                        <span>{t('notifications')}</span>
+                                        {unreadNotifs > 0 && <span className="text-xs text-red-500 font-bold">{unreadNotifs} {t('new_label')}</span>}
                                     </div>
                                 }
                                 trigger="click"

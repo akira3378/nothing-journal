@@ -1,13 +1,13 @@
 
 import React, { useEffect, useState } from 'react';
 import { useParams, useSearchParams, useNavigate } from 'react-router-dom';
-import { getPostById, getComments, toggleLike, addComment, deletePost, deleteComment } from '../services/mockBackend';
+import { getPostById, getComments, toggleLike, addComment, deletePost, deleteComment } from '../services/supabaseBackend';
 import { Post, User, Comment } from '../types';
 import { useApp } from '../utils/i18n';
 import { ImagePreview } from '../components/ImagePreview';
 import { formatLocalTime, formatRelativeTime } from '../utils/formatters';
 import { Button, Spinner, useToast, Icons } from '../components/UI';
-import { getCurrentUser } from '../services/mockBackend';
+import { getCurrentUser } from '../services/supabaseBackend';
 
 const PostDetailPage: React.FC = () => {
     const { id } = useParams<{ id: string }>();
@@ -141,7 +141,7 @@ const PostDetailPage: React.FC = () => {
     };
 
     if (loading) return <div className="flex justify-center pt-32"><Spinner size="lg" /></div>;
-    if (!post) return <div className="text-center pt-32 text-zinc-500 font-mono">ERR: POST_NOT_FOUND</div>;
+    if (!post) return <div className="text-center pt-32 text-zinc-500 font-mono">{t('post_not_found')}</div>;
 
     return (
         <div className="max-w-2xl mx-auto px-4 py-8">
@@ -344,7 +344,7 @@ const CommentInput: React.FC<{
                     className="flex-1 bg-transparent px-2 py-2 text-sm outline-none text-black dark:text-white placeholder-zinc-400 comment-input"
                     placeholder={t('comment_placeholder')}
                 />
-                <Button type="submit" isLoading={loading} disabled={!value.trim()} size="sm" className="h-8 rounded-full px-4">Send</Button>
+                <Button type="submit" isLoading={loading} disabled={!value.trim()} size="sm" className="h-8 rounded-full px-4">{t('send')}</Button>
             </div>
         </form>
     );

@@ -1,5 +1,6 @@
 
 import React, { createContext, useContext, useState, useRef, useEffect } from 'react';
+import { useApp } from '../utils/i18n';
 
 // --- Types ---
 type Variant = 'primary' | 'secondary' | 'danger' | 'ghost';
@@ -318,6 +319,7 @@ interface ToastContextType {
 const ToastContext = createContext<ToastContextType | undefined>(undefined);
 
 export const ToastProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
+    const { t } = useApp();
     const [toasts, setToasts] = useState<Toast[]>([]);
 
     const addToast = (message: string, type: 'success' | 'error' | 'info' = 'info', duration: number = 4000, onClick?: () => void) => {
@@ -357,7 +359,7 @@ export const ToastProvider: React.FC<{ children: React.ReactNode }> = ({ childre
                         <div className="flex-1 pr-4">
                             <p className="text-sm font-bold text-black dark:text-white leading-snug">{toast.message}</p>
                             {toast.duration === 0 && (
-                                <p className="text-[10px] text-zinc-400 mt-1 uppercase tracking-wider">Realtime Alert</p>
+                                <p className="text-[10px] text-zinc-400 mt-1 uppercase tracking-wider">{t('realtime_alert')}</p>
                             )}
                         </div>
 
