@@ -210,24 +210,8 @@ export const getSession = async (): Promise<Session | null> => {
     return session;
 };
 
-export const signInWithPassword = async (identifier: string, password: string): Promise<ApiResponse<Session>> => {
-    const check = ensureClient();
-    if (!check.success) return check;
-
-    const normalized = identifier.trim().toLowerCase();
-    const email = normalized.includes('@') ? normalized : `${normalized}@nothing.local`;
-
-    try {
-        const { data, error } = await supabase!.auth.signInWithPassword({ email, password });
-        if (error) return { success: false, error: error.message };
-        return { success: true, data: data.session || undefined };
-    } catch (err: any) {
-        return { success: false, error: err.message || 'Login failed' };
-    }
-};
-
 // Step 1: Send OTP (Code)
-export const sendOtp = async (email: string): Promise<ApiResponse<string>> => {
+export const sendOtp = async (email: string, forRegistration = false): Promise<ApiResponse<string>> => {
     const check = ensureClient();
     if (!check.success) return check;
 
@@ -235,7 +219,10 @@ export const sendOtp = async (email: string): Promise<ApiResponse<string>> => {
 
     try {
         const { data: existing } = await supabase!.from('profiles').select('id').eq('email', cleanEmail).maybeSingle();
-        if (!existing) {
+        if (forRegistration && existing) {
+            return { success: false, error: 'Account already exists.' };
+        }
+        if (!forRegistration && !existing) {
             return { success: false, error: 'Account not found.' };
         }
 
@@ -243,7 +230,7 @@ export const sendOtp = async (email: string): Promise<ApiResponse<string>> => {
         const { error } = await supabase!.auth.signInWithOtp({
             email: cleanEmail,
             options: {
-                shouldCreateUser: false,
+                shouldCreateUser: forRegistration,
             },
         });
 
@@ -296,6 +283,36 @@ export const verifyOtp = async (email: string, token: string, type: EmailOtpType
     } catch (err: any) {
         return { success: false, error: err.message || 'Invalid code' };
     }
+};
+
+export const createProfile = async (nickname: string): Promise<ApiResponse<User>> => {
+    const check = ensureClient();
+    if (!check.success) return check;
+
+    const { data: { user }, error: userError } = await supabase!.auth.getUser();
+    if (userError || !user) {
+        return { success: false, error: 'Unable to retrieve the new account.' };
+    }
+
+    const cleanNickname = nickname.trim();
+    if (!cleanNickname) {
+        return { success: false, error: 'Nickname is required.' };
+    }
+
+    const { error } = await supabase!.from('profiles').insert({
+        id: user.id,
+        email: user.email,
+        nickname: cleanNickname,
+        job_tags: [],
+        role: 'USER',
+    });
+
+    if (error) return { success: false, error: error.message };
+
+    const profile = await getCurrentUser();
+    return profile
+        ? { success: true, data: profile }
+        : { success: false, error: 'Profile creation failed.' };
 };
 
 export const uploadImage = async (file: File, bucket: 'avatars' | 'posts'): Promise<string | null> => {

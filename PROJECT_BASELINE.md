@@ -60,7 +60,7 @@ npm run build
 │   └── useData.ts           # Feed、个人帖子和当前用户的 SWR hooks
 ├── pages/
 │   ├── LandingPage.tsx      # 首页
-│   ├── LoginPage.tsx        # 密码登录和邮箱验证码登录
+│   ├── LoginPage.tsx        # 邮箱验证码登录和注册
 │   ├── FeedPage.tsx         # 旅行记录列表、发布和互动
 │   ├── ProfilePage.tsx      # 个人资料和个人记录
 │   └── PostDetailPage.tsx   # 单条记录和评论树
@@ -89,7 +89,7 @@ npm run build
 | `/feed` | 历史兼容路径 | 重定向到 `/journal` |
 | `/admin` | 历史兼容路径 | 重定向到 `/journal` |
 
-当前不再有注册审核、会员续期、凭证上传、公告管理或独立审核后台。
+当前注册保留为邮箱验证码注册，注册后创建普通 `USER` 作者资料；不再有注册审核、会员续期、凭证上传、公告管理或独立审核后台。
 
 ## 6. 前端与 Supabase 的边界
 
@@ -102,7 +102,7 @@ React 页面
 
 主要数据访问职责：
 
-- Auth：会话、密码登录、邮箱验证码登录、登出
+- Auth：会话、邮箱验证码登录、邮箱验证码注册、登出
 - Profiles：作者资料、头像、角色
 - Posts：旅行记录、标题、日期、公开状态、图片
 - Comments：评论、回复、删除
