@@ -138,23 +138,7 @@ const ProfilePage: React.FC<ProfileProps> = ({ user }) => {
                             </div>
 
                             <div className="min-w-0 flex-1 pb-1">
-                                {isEditing ? (
-                                    <div className="w-full max-w-xl">
-                                        <label htmlFor="profile-nickname" className="mb-1 block text-[10px] font-bold uppercase tracking-[0.2em] text-zinc-400">
-                                            {t('nickname')}
-                                        </label>
-                                        <input
-                                            id="profile-nickname"
-                                            value={nickname}
-                                            onChange={event => setNickname(event.target.value)}
-                                            placeholder={t('nickname_placeholder')}
-                                            maxLength={40}
-                                            className="w-full border-b-2 border-zinc-300 bg-transparent py-1 text-3xl font-black tracking-[-0.04em] text-black outline-none focus:border-black dark:border-zinc-700 dark:text-white dark:focus:border-white"
-                                        />
-                                    </div>
-                                ) : (
-                                    <h2 className="truncate text-3xl font-black tracking-[-0.04em] text-black dark:text-white">{user.nickname}</h2>
-                                )}
+                                <h2 className="truncate text-3xl font-black tracking-[-0.04em] text-black dark:text-white">{isEditing ? nickname : user.nickname}</h2>
                                 <div className="mt-2 flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-zinc-500 dark:text-zinc-400">
                                     <span className="font-mono">{user.email}</span>
                                     <span className="inline-flex items-center gap-1"><Icons.MapPin className="h-3.5 w-3.5" />{locationLabel}</span>
@@ -192,6 +176,19 @@ const ProfilePage: React.FC<ProfileProps> = ({ user }) => {
                             <div className="mt-8 rounded-2xl bg-zinc-50 p-5 dark:bg-black/30">
                                 <p className="mb-5 text-xs leading-5 text-zinc-500 dark:text-zinc-400">{t('profile_edit_hint')}</p>
                                 <div className="grid gap-5 md:grid-cols-2">
+                                    <div className="md:col-span-2">
+                                        <label htmlFor="profile-nickname" className="mb-2 block text-[10px] font-bold uppercase tracking-[0.2em] text-zinc-400">
+                                            {t('nickname')}
+                                        </label>
+                                        <input
+                                            id="profile-nickname"
+                                            value={nickname}
+                                            onChange={event => setNickname(event.target.value)}
+                                            placeholder={t('nickname_placeholder')}
+                                            maxLength={40}
+                                            className="w-full max-w-xl border-b border-zinc-300 bg-transparent px-1 py-2 text-base font-bold text-black outline-none focus:border-black dark:border-zinc-700 dark:text-white dark:focus:border-white"
+                                        />
+                                    </div>
                                     <div>
                                         <label className="mb-2 block text-[10px] font-bold uppercase tracking-[0.2em] text-zinc-400">{t('select_country')}</label>
                                         <Select showSearch value={country || undefined} onChange={value => { setCountry(value); setCity(''); }} placeholder={t('select_country')} optionFilterProp="label" className="w-full" options={Country.getAllCountries().map(item => ({ value: item.name, label: item.name }))} />
