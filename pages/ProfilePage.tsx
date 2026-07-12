@@ -139,7 +139,19 @@ const ProfilePage: React.FC<ProfileProps> = ({ user }) => {
 
                             <div className="min-w-0 flex-1 pb-1">
                                 {isEditing ? (
-                                    <input value={nickname} onChange={event => setNickname(event.target.value)} aria-label={t('nickname')} className="w-full max-w-xl border-b-2 border-zinc-300 bg-transparent py-1 text-3xl font-black tracking-[-0.04em] text-black outline-none focus:border-black dark:border-zinc-700 dark:text-white dark:focus:border-white" />
+                                    <div className="w-full max-w-xl">
+                                        <label htmlFor="profile-nickname" className="mb-1 block text-[10px] font-bold uppercase tracking-[0.2em] text-zinc-400">
+                                            {t('nickname')}
+                                        </label>
+                                        <input
+                                            id="profile-nickname"
+                                            value={nickname}
+                                            onChange={event => setNickname(event.target.value)}
+                                            placeholder={t('nickname_placeholder')}
+                                            maxLength={40}
+                                            className="w-full border-b-2 border-zinc-300 bg-transparent py-1 text-3xl font-black tracking-[-0.04em] text-black outline-none focus:border-black dark:border-zinc-700 dark:text-white dark:focus:border-white"
+                                        />
+                                    </div>
                                 ) : (
                                     <h2 className="truncate text-3xl font-black tracking-[-0.04em] text-black dark:text-white">{user.nickname}</h2>
                                 )}
