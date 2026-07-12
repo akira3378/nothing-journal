@@ -360,11 +360,11 @@ export const FeedItem: React.FC<{ post: Post & { user?: User }; currentUser: Use
                             </div>
 
                             <div className="flex items-center gap-2 text-xs font-medium text-zinc-400 dark:text-zinc-500">
-                                <span>{formatRelativeTime(post.createdAt)}</span>
+                                <span>{formatLocalTime(post.entryDate || post.createdAt)}</span>
                                 {post.location && (
                                     <>
                                         <span className="w-0.5 h-0.5 bg-zinc-300 rounded-full"></span>
-                                        <span className="flex items-center gap-1 max-w-[150px] truncate text-zinc-500 dark:text-zinc-400">
+                                        <span className="flex items-center gap-1 text-zinc-500 dark:text-zinc-400 whitespace-normal break-words">
                                             <Icons.MapPin className="w-3 h-3" />
                                             {post.location}
                                         </span>

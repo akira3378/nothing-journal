@@ -27,9 +27,12 @@ import imageCompression from 'browser-image-compression';
   create table posts (
     id uuid default gen_random_uuid() primary key,
     user_id uuid references profiles(id) on delete cascade,
+    title text,
     content text,
     image_urls text[],
     location text,
+    entry_date timestamptz default now(),
+    is_published boolean default true,
     created_at timestamptz default now()
   );
 
@@ -39,6 +42,7 @@ import imageCompression from 'browser-image-compression';
     post_id uuid references posts(id) on delete cascade,
     user_id uuid references profiles(id) on delete cascade,
     content text,
+    parent_id uuid references comments(id) on delete cascade,
     created_at timestamptz default now()
   );
 
