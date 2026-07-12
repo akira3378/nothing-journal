@@ -28,11 +28,13 @@ const ImageGrid: React.FC<{ imageUrls: string[] }> = ({ imageUrls }) => {
         return (
             <div className="mt-3 mb-1">
                 <div className="mt-3 mb-1">
-                    <img
-                        src={imageUrls[0]}
-                        alt={t('post_attachment')}
-                        className="rounded-sm w-full h-auto max-h-[500px] overflow-hidden bg-zinc-100 dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800"
-                    />
+                        <ImagePreview
+                            src={imageUrls[0]}
+                            alt={t('post_attachment')}
+                            className="rounded-sm w-full h-auto max-h-[500px] bg-zinc-100 dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800"
+                            thumbnailClassName="w-full h-auto max-h-[500px] object-contain"
+                            thumbnailWidth={1000}
+                        />
                 </div>
             </div>
         );
@@ -52,10 +54,12 @@ const ImageGrid: React.FC<{ imageUrls: string[] }> = ({ imageUrls }) => {
         <div className={`grid ${gridClass} gap-0.5 mt-3 mb-1 rounded-sm overflow-hidden border border-zinc-200 dark:border-zinc-800`}>
             {imageUrls.map((url, index) => (
                     <div key={index} className="aspect-square relative overflow-hidden bg-zinc-100 dark:bg-zinc-800">
-                        <img
+                        <ImagePreview
                             src={url}
                             alt={`${t('attachment')} ${index + 1}`}
-                            className="w-full h-full object-cover hover:scale-105 transition-transform duration-500"
+                            className="w-full h-full"
+                            thumbnailClassName="w-full h-full object-cover"
+                            thumbnailWidth={500}
                         />
                     </div>
                 ))}
