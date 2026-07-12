@@ -39,6 +39,13 @@ const LoginPage: React.FC<LoginProps> = ({ onLoginSuccess }) => {
         }
     }, [location]);
 
+    const switchLoginMode = (mode: 'otp' | 'register') => {
+        setLoginMode(mode);
+        setStep('email');
+        setOtp('');
+        setError('');
+    };
+
     const handleSendCode = async (e: React.FormEvent) => {
         e.preventDefault();
         setLoading(true);
@@ -136,7 +143,14 @@ const LoginPage: React.FC<LoginProps> = ({ onLoginSuccess }) => {
     };
 
     return (
-        <div className="min-h-screen flex items-center justify-center bg-white dark:bg-nothing-black px-4 transition-colors duration-300">
+        <div className="relative min-h-screen flex items-center justify-center bg-white dark:bg-nothing-black px-4 transition-colors duration-300">
+            <button
+                type="button"
+                onClick={() => navigate('/')}
+                className="absolute left-6 top-6 text-sm text-zinc-500 hover:text-black dark:hover:text-white underline underline-offset-4 transition-colors"
+            >
+                {t('return_home')}
+            </button>
             <div className="max-w-md w-full space-y-8">
                 <div className="text-center">
                     <h2 className="text-4xl font-bold tracking-tighter text-black dark:text-white">
@@ -177,7 +191,7 @@ const LoginPage: React.FC<LoginProps> = ({ onLoginSuccess }) => {
                                     {loading && <span className="animate-spin h-4 w-4 border-2 border-white dark:border-black border-t-transparent rounded-full"></span>}
                                     {loading ? t('processing') : t('send_code')}
                                 </button>
-                                <button type="button" onClick={() => setLoginMode('register')} className="w-full text-xs text-zinc-500 hover:text-black dark:hover:text-white underline mt-4">{t('create_account')}</button>
+                                <button type="button" onClick={() => switchLoginMode('register')} className="w-full text-xs text-zinc-500 hover:text-black dark:hover:text-white underline mt-4">{t('create_account')}</button>
                             </form>
                         </fieldset>
                     )}
@@ -196,7 +210,7 @@ const LoginPage: React.FC<LoginProps> = ({ onLoginSuccess }) => {
                                 <button type="submit" disabled={loading} className="w-full flex justify-center items-center gap-2 py-3 px-4 text-sm font-bold rounded-sm text-white dark:text-black bg-black dark:bg-white disabled:opacity-50">
                                     {loading ? t('processing') : t('send_code')}
                                 </button>
-                                <button type="button" onClick={() => setLoginMode('otp')} className="w-full text-xs text-zinc-500 hover:text-black dark:hover:text-white underline">{t('back_to_login')}</button>
+                                <button type="button" onClick={() => switchLoginMode('otp')} className="w-full text-xs text-zinc-500 hover:text-black dark:hover:text-white underline">{t('back_to_login')}</button>
                             </form>
                         </fieldset>
                     )}

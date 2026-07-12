@@ -177,6 +177,7 @@ const baseTranslations = {
     login_to_comment: '登录后留下你的回应',
     read_note: '阅读记录',
     back_to_journal: '返回旅行记录',
+    return_home: '返回首页',
     journal_entry: '旅途记录',
     trip_updates: '旅途更新',
     manage_journal: '管理记录',
